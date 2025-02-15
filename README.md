@@ -1,46 +1,98 @@
-# Discodrome 🎵
+<div align="center">
 
-Discodrome is a powerful Discord bot that streams music from your personal Subsonic server. It allows you to enjoy your own music collection within Discord voice channels, with commands for playing, queueing, skipping tracks, and more.
+# Discodrome
 
-## Features
+### Discord bot that streams music from your personal Subsonic server
 
-🔹 Play music from your Subsonic server in Discord voice channels 🎵
-🔹 Queue tracks and manage the playback order 📜
-🔹 Skip tracks or clear the entire queue ⏩
-🔹 Automatic playback of similar or random tracks 🔁
-🔹 Easy setup with Docker or from source 🚀
+[![GitHub issues](https://img.shields.io/github/issues/7eventy7/discodrome.svg)](https://github.com/7eventy7/discodrome/issues)
+[![Docker Pulls](https://img.shields.io/docker/pulls/7eventy7/discodrome.svg)](https://hub.docker.com/r/7eventy7/discodrome)
+[![License](https://img.shields.io/github/license/7eventy7/discodrome.svg)](https://github.com/7eventy7/discodrome/blob/main/LICENSE)
 
-## Installation
+Enjoy your music collection within Discord voice channels with rich playback controls and automation features.
 
-1. Pull the latest Docker image:
-   ```
-   docker pull 7eventy7/discodrome:latest
-   ```
+</div>
 
-2. Run the Docker container with the required environment variables:
-   ```
-   docker run -e DISCORD_TOKEN=your_discord_token \
-              -e SUBSONIC_URL=your_subsonic_url \
-              -e SUBSONIC_USER=your_subsonic_username \
-              -e SUBSONIC_PASS=your_subsonic_password \
-              7eventy7/discodrome:latest
-   ```
-   Replace the placeholders with your actual Discord bot token, Subsonic server URL, username, and password.
+---
 
+## 🎮 Commands
 
-## Commands
+- `/play [query]`: Play a track matching the query or resume current queue
+- `/stop`: Stop playback and disconnect from voice channel
+- `/queue`: Display the current playback queue
+- `/clear`: Clear all tracks from the queue
+- `/skip`: Skip the currently playing track
+- `/autoplay [mode]`: Set autoplay mode (none/random/similar)
 
-🤖 `/play [query]`: Play a track matching the given query. If no query is provided, resume playback of the current queue.
-🤖 `/stop`: Stop playback and disconnect the bot from the voice channel.
-🤖 `/queue`: Display the current playback queue.
-🤖 `/clear`: Clear all tracks from the playback queue.
-🤖 `/skip`: Skip the currently playing track.
-🤖 `/autoplay [mode]`: Set the autoplay mode to "none", "random", or "similar". Autoplay will automatically queue tracks after the current queue is exhausted.
+## 🚀 Getting Started
 
-## Contributing
+### Using Docker (Recommended)
 
-Contributions are welcome! 🤝 If you encounter any bugs 🐛 or have suggestions for new features 💡, please open an issue on the [GitHub repository](https://github.com/yourusername/discodrome). If you'd like to contribute code changes 💻, feel free to open a pull request.
+1. Pull the latest image:
+```bash
+docker pull 7eventy7/discodrome:latest
+```
 
-## License
+2. Create a docker-compose.yml file:
+```yaml
+version: '3'
+services:
+  discodrome:
+    image: 7eventy7/discodrome:latest
+    environment:
+      - DISCORD_TOKEN=your_discord_token
+      - SUBSONIC_URL=your_subsonic_url
+      - SUBSONIC_USER=your_subsonic_username
+      - SUBSONIC_PASS=your_subsonic_password
+    restart: unless-stopped
+```
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+3. Start the bot:
+```bash
+docker-compose up -d
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+- `DISCORD_TOKEN`: Your Discord bot token
+- `SUBSONIC_URL`: URL of your Subsonic server
+- `SUBSONIC_USER`: Subsonic username
+- `SUBSONIC_PASS`: Subsonic password
+- `AUTOPLAY_DEFAULT`: Default autoplay mode (optional, defaults to "none")
+- `MAX_QUEUE_SIZE`: Maximum queue size (optional, defaults to 500)
+
+## 🛠️ Technical Stack
+
+- Discord.js
+- Node.js
+- Subsonic API
+- Docker
+- FFmpeg for audio processing
+
+## 👥 Contributing
+
+We welcome contributions! Whether it's:
+
+- 🐛 Reporting bugs
+- 💡 Suggesting features
+- 📝 Improving documentation
+- 🔍 Submitting fixes
+- ✨ Adding new features
+
+Please check our [GitHub Issues](https://github.com/7eventy7/discodrome/issues) before submitting new ones.
+
+## 📝 License
+
+GPL-3.0 license - feel free to use this project for most any purpose.
+
+## 🙏 Acknowledgments
+
+This project is a fork of [Submeister](https://github.com/Gimzie/submeister) by Gimzie. We've built upon their excellent foundation to add new features and improvements while maintaining the core functionality that made the original project great.
+
+---
+
+<div align="center">
+
+Made with ❤️ by [7eventy7](https://github.com/7eventy7)
+
+</div>
