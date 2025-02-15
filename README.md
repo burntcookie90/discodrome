@@ -83,7 +83,7 @@ Please check our [GitHub Issues](https://github.com/7eventy7/discodrome/issues) 
 
 ## 📝 License
 
-MIT License - feel free to use this project for any purpose.
+GPL-3.0 license - feel free to use this project for most any purpose.
 
 ## 🙏 Acknowledgments
 
