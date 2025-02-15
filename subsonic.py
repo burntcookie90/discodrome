@@ -16,7 +16,7 @@ SUBSONIC_REQUEST_PARAMS = {
         "u": env.SUBSONIC_USER,
         "p": env.SUBSONIC_PASSWORD,
         "v": "1.15.0",
-        "c": "submeister",
+        "c": "discodrome",
         "f": "json"
     }
 
@@ -24,7 +24,7 @@ SUBSONIC_REQUEST_PARAMS = {
 class Song():
     ''' Object representing a song returned from the Subsonic API '''
     def __init__(self, json_object: dict) -> None:
-        #! Other properties exist in the initial json response but are currently unused by Submeister and thus aren't supported here
+        #! Other properties exist in the initial json response but are currently unused by Discodrome and thus aren't supported here
         self._id: str = json_object["id"] if "id" in json_object else ""
         self._title: str = json_object["title"] if "title" in json_object else "Unknown Track"
         self._album: str = json_object["album"] if "album" in json_object else "Unknown Album"

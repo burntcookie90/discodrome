@@ -3,7 +3,6 @@
 import logging
 import discord
 
-from discord import app_commands
 from discord.ext import commands
 
 import data
@@ -11,16 +10,16 @@ import player
 import subsonic
 import ui
 
-from submeister import SubmeisterClient
+from discodrome import DiscodromeClient
 
 logger = logging.getLogger(__name__)
 
 class MusicCog(commands.Cog):
     ''' A Cog containing music playback commands '''
 
-    bot : SubmeisterClient
+    bot : DiscodromeClient
 
-    def __init__(self, bot: SubmeisterClient):
+    def __init__(self, bot: DiscodromeClient):
         self.bot = bot
 
     async def get_voice_client(self, interaction: discord.Interaction, *, should_connect: bool=False) -> discord.VoiceClient:
@@ -84,122 +83,6 @@ class MusicCog(commands.Cog):
         await player.play_audio_queue(interaction, voice_client)
 
 
-    @app_commands.command(name="search", description="Search for a track")
-    @app_commands.describe(query="Enter a search query")
-    async def search(self, interaction: discord.Interaction, query: str) -> None:
-        ''' Search for tracks by the given title/artist & list them '''
-
-        # The number of songs to retrieve and the offset to start at
-        song_count = 10 # TODO: Make this user-adjustable
-        song_offset = 0
-
-        # Send our query to the subsonic API and retrieve a list of songs
-        songs = subsonic.search(query, artist_count=0, album_count=0, song_count=song_count, song_offset=song_offset)
-
-        # Display an error if the query returned no results
-        if len(songs) == 0:
-            await ui.ErrMsg.msg(interaction, f"No results found for **{query}**.")
-            return
-
-        # Create a view for our response
-        view = discord.ui.View()
-
-        # Create a select menu option for each of our results
-        select_options = ui.parse_search_as_track_selection_options(songs)
-
-        # Create a select menu, populated with our options
-        song_selector = discord.ui.Select(placeholder="Select a track", options=select_options)
-        view.add_item(song_selector)
-
-
-        # Callback to handle interaction with a select item
-        async def song_selected(interaction: discord.Interaction) -> None:
-            voice_client = await self.get_voice_client(interaction)
-
-            # Don't allow users who aren't in a voice channel with the bot to queue tracks
-            if voice_client is not None and interaction.user.status is None:
-                return await ui.ErrMsg.user_not_in_voice_channel(interaction)
-
-            # Get the song selected by the user
-            selected_song = songs[int(song_selector.values[0])]
-
-            # Get the guild's player
-            player = data.guild_data(interaction.guild_id).player
-
-            # Add the selected song to the queue
-            player.queue.append(selected_song)
-
-            # Let the user know a track has been added to the queue
-            await ui.SysMsg.added_to_queue(interaction, selected_song)
-
-            # Fetch the cover art in advance
-            subsonic.get_album_art_file(selected_song.cover_id)
-
-            # Attempt to play the audio queue, if the bot is in the voice channel
-            if voice_client is not None:
-                await player.play_audio_queue(interaction, voice_client)
-
-
-        # Assign the song_selected callback to the select menu
-        song_selector.callback = song_selected
-
-        # Create page navigation buttons
-        prev_button = discord.ui.Button(label="<", custom_id="prev_button")
-        next_button = discord.ui.Button(label=">", custom_id="next_button")
-        view.add_item(prev_button)
-        view.add_item(next_button)
-
-
-        # Callback to handle interactions with page navigator buttons
-        async def page_changed(interaction: discord.Interaction) -> None:
-            nonlocal song_count, song_offset, song_selector, song_selected, songs
-
-            # Adjust the search offset according to the button pressed
-            if interaction.data["custom_id"] == "prev_button":
-                song_offset -= song_count
-                if song_offset < 0:
-                    song_offset = 0
-                    await interaction.response.defer()
-                    return
-            elif interaction.data["custom_id"] == "next_button":
-                song_offset += song_count
-
-            # Send our query to the Subsonic API and retrieve a list of songs, backing up the previous page's songs first
-            songs_lastpage = songs
-            songs = subsonic.search(query, artist_count=0, album_count=0, song_count=song_count, song_offset=song_offset)
-
-            # If there are no results on this page, go back one page and don't update the response
-            if len(songs) == 0:
-                song_offset -= song_count
-                songs = songs_lastpage
-                await interaction.response.defer()
-                return
-
-            # Generate a new embed containing this page's search results
-            song_list = ui.parse_search_as_track_selection_embed(songs, query, (song_offset // song_count) + 1)
-
-            # Create a selection menu, populated with our new options
-            select_options = ui.parse_search_as_track_selection_options(songs)
-
-            # Update the selector in the existing view
-            view.remove_item(song_selector)
-            song_selector = discord.ui.Select(placeholder="Select a track", options=select_options)
-            song_selector.callback = song_selected
-            view.add_item(song_selector)
-
-            # Update the message to show the new search results
-            await interaction.response.edit_message(embed=song_list, view=view)
-
-
-        # Assign the page_changed callback to the page navigation buttons
-        prev_button.callback = page_changed
-        next_button.callback = page_changed
-
-        # Generate a formatted embed for the current search results
-        song_list = ui.parse_search_as_track_selection_embed(songs, query, (song_offset // song_count) + 1)
-
-        # Show our song selection menu
-        await interaction.response.send_message(embed=song_list, view=view, ephemeral=True)
 
 
     @app_commands.command(name="stop", description="Stop playing the current track")
@@ -221,7 +104,7 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.disconnected(interaction)
 
 
-    @app_commands.command(name="show-queue", description="View the current queue")
+    @app_commands.command(name="queue", description="View the current queue")
     async def show_queue(self, interaction: discord.Interaction) -> None:
         ''' Show the current queue '''
 
@@ -243,7 +126,7 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.msg(interaction, "Queue", output)
 
 
-    @app_commands.command(name="clear-queue", description="Clear the queue")
+    @app_commands.command(name="clear", description="Clear the current queue")
     async def clear_queue(self, interaction: discord.Interaction) -> None:
         '''Clear the queue'''
         queue = data.guild_data(interaction.guild_id).player.queue
@@ -308,7 +191,7 @@ class MusicCog(commands.Cog):
             player = data.guild_data(interaction.guild_id).player
             await player.play_audio_queue(interaction, voice_client)
 
-async def setup(bot: SubmeisterClient):
+async def setup(bot: DiscodromeClient):
     ''' Setup function for the music.py cog '''
 
     await bot.add_cog(MusicCog(bot))

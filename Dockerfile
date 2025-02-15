@@ -10,4 +10,4 @@ RUN apk add --no-cache alpine-sdk ffmpeg libffi-dev \
 
 COPY . .
 
-CMD ["python3", "/app/submeister.py"]
+CMD ["python3", "/app/discodrome.py"]

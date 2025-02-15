@@ -22,7 +22,7 @@ _default_data: dict[str, any] = {
 }
 
 class GuildData():
-    ''' Class that holds all Submeister data specific to a guild (not saved to disk) '''
+    ''' Class that holds all Discodrome data specific to a guild (not saved to disk) '''
     def __init__(self) -> None:
         self._data = _default_data
         self.player = Player()
@@ -72,7 +72,7 @@ _default_properties: dict[str, any] = {
 
 
 class GuildProperties():
-    ''' Class that holds all Submeister properties specific to a guild (saved to disk) '''
+    ''' Class that holds all Discodrome properties specific to a guild (saved to disk) '''
     def __init__(self) -> None:
         self._properties = _default_properties
 

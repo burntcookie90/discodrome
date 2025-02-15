@@ -1,10 +1,9 @@
-''' Submeister - A Discord bot that streams music from your personal Subsonic server. '''
-
+import atexit
+import discord
 import logging
 import os
 
-import atexit
-import discord
+logger = logging.getLogger(__name__)
 
 from discord.ext import commands
 
@@ -13,8 +12,8 @@ import data
 from util import env
 from util import logs
 
-class SubmeisterClient(commands.Bot):
-    ''' An instance of the submeister client '''
+class DiscodromeClient(commands.Bot):
+    ''' An instance of the Discodrome client '''
 
     test_guild: int
 
@@ -69,7 +68,7 @@ if __name__ == "__main__":
 
     data.load_guild_properties_from_disk()
 
-    client = SubmeisterClient(test_guild=env.DISCORD_TEST_GUILD)
+    client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
 
 @atexit.register
