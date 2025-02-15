@@ -77,11 +77,16 @@ class Player():
         loop = asyncio.get_event_loop()
 
         # Handle playback finished
-        def playback_finished(error):
-            if self.handle_autoplay(interaction, self.current_song.song_id):
+        async def playback_finished(error):
+            if await self.handle_autoplay(interaction, self.current_song.song_id):
                 asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
             else:
-                asyncio.run_coroutine_threadsafe(ui.SysMsg.playback_ended(interaction), loop)
+                # Add a cooldown check before sending the playback ended message
+                last_message_time = getattr(interaction.guild, "last_playback_ended_message_time", 0)
+                current_time = asyncio.get_running_loop().time()
+                if current_time - last_message_time >= 5:  # 5 seconds cooldown
+                    asyncio.run_coroutine_threadsafe(ui.SysMsg.playback_ended(interaction), loop)
+                    interaction.guild.last_playback_ended_message_time = current_time
 
         voice_client.play(audio_src, after=playback_finished)
 
