@@ -76,15 +76,17 @@ class Player():
         # Begin playing the song
         loop = asyncio.get_event_loop()
 
-        # TODO: probably should handle error
+        # Handle playback finished
         def playback_finished(error):
-            self.handle_autoplay(interaction, self.current_song.song_id)
-            asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
+            if self.handle_autoplay(interaction, self.current_song.song_id):
+                asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
+            else:
+                asyncio.run_coroutine_threadsafe(ui.SysMsg.playback_ended(interaction), loop)
 
         voice_client.play(audio_src, after=playback_finished)
 
 
-    async def handle_autoplay(self, interaction: discord.Interaction, prev_song_id: str=None):
+    async def handle_autoplay(self, interaction: discord.Interaction, prev_song_id: str=None) -> bool:
         ''' Handles populating the queue when autoplay is enabled '''
 
         autoplay_mode = data.guild_properties(interaction.guild_id).autoplay_mode
@@ -92,7 +94,7 @@ class Player():
 
         # If queue is notempty or autoplay is disabled, don't handle autoplay
         if queue != [] or autoplay_mode is data.AutoplayMode.NONE:
-            return
+            return False
 
         # If there was no previous song provided, we default back to selecting a random song
         if prev_song_id is None:
@@ -109,10 +111,10 @@ class Player():
         # If there's no match, throw an error
         if len(songs) == 0:
             await ui.ErrMsg.msg(interaction, "Failed to obtain a song for autoplay.")
-            return
+            return False
         
         self.queue.append(songs[0])
-
+        return True
         # Fetch the cover art in advance
         subsonic.get_album_art_file(songs[0].cover_id)
 
@@ -129,7 +131,6 @@ class Player():
         if voice_client.is_playing():
             return
 
-        await self.handle_autoplay(interaction)
 
         # Check if the queue contains songs
         if self.queue != []:
@@ -139,8 +140,6 @@ class Player():
             self.current_song = song
 
             await self.stream_track(interaction, song, voice_client)
-            return
-            
-
-        # If the queue is empty, playback has ended; we should let the user know
-        await ui.SysMsg.playback_ended(interaction)
+        else:
+            # If the queue is empty, playback has ended; we should let the user know
+            await ui.SysMsg.playback_ended(interaction)

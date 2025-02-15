@@ -1,6 +1,5 @@
 import discord
 import logging
-
 from discord import app_commands
 from discord.ext import commands
 
@@ -81,7 +80,12 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.added_to_queue(interaction, songs[0])
         await player.play_audio_queue(interaction, voice_client)
 
-        # Check if there are no users in the voice channel after the song finishes
+        # Check if the bot is alone in the voice channel after the song finishes
+        await self.check_alone_disconnect(interaction, voice_client)
+    async def check_alone_disconnect(self, interaction: discord.Interaction, voice_client: discord.VoiceClient) -> None:
+        ''' Disconnect the bot if it's alone in the voice channel for 10 seconds '''
+
+        # Check if there are no users in the voice channel
         if len(voice_client.channel.members) == 1:
             # Wait for 10 seconds
             await asyncio.sleep(10)
@@ -90,9 +94,9 @@ class MusicCog(commands.Cog):
             if len(voice_client.channel.members) == 1:
                 # Disconnect the bot and clear the queue
                 await voice_client.disconnect()
+                player = data.guild_data(interaction.guild_id).player
                 player.queue.clear()
                 await ui.SysMsg.msg(interaction, "The bot has disconnected and cleared the queue as there are no users in the voice channel.")
-
 
     @app_commands.command(name="stop", description="Stop playing the current track")
     async def stop(self, interaction: discord.Interaction) -> None:
@@ -106,13 +110,11 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.bot_not_in_voice_channel(interaction)
             return
 
-        # Check if there are other users in the voice channel
-        if len(voice_client.channel.members) > 1:
-            await ui.SysMsg.msg(interaction, "The bot will stay connected as there are other users in the voice channel.")
-            return
+        # Stop playback
+        voice_client.stop()
 
-        # Disconnect the voice client if no other users are in the channel
-        await interaction.guild.voice_client.disconnect()
+        # Check if the bot is alone and should disconnect after 10 seconds
+        await self.check_alone_disconnect(interaction, voice_client)
 
         # Display disconnect confirmation
         await ui.SysMsg.disconnected(interaction)

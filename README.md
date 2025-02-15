@@ -97,6 +97,6 @@ This project is a fork of [Submeister](https://github.com/Gimzie/submeister) by 
 
 <div align="center">
 
-Made with ❤️ by [7eventy7](https://github.com/7eventy7)
+Forked with ❤️ by [7eventy7](https://github.com/7eventy7)
 
 </div>
