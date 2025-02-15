@@ -39,10 +39,13 @@ services:
   discodrome:
     image: 7eventy7/discodrome:latest
     environment:
-      - DISCORD_TOKEN=your_discord_token
-      - SUBSONIC_URL=your_subsonic_url
+      - SUBSONIC_SERVER=your_subsonic_server
       - SUBSONIC_USER=your_subsonic_username
-      - SUBSONIC_PASS=your_subsonic_password
+      - SUBSONIC_PASSWORD=your_subsonic_password
+      - DISCORD_BOT_TOKEN=your_discord_bot_token
+      - DISCORD_TEST_GUILD=your_discord_test_guild
+      - DISCORD_OWNER_ID=your_discord_owner_id
+      - BOT_STATUS=your_bot_status
     restart: unless-stopped
 ```
 
@@ -54,12 +57,13 @@ docker-compose up -d
 ## ⚙️ Configuration
 
 ### Environment Variables
-- `DISCORD_TOKEN`: Your Discord bot token
-- `SUBSONIC_URL`: URL of your Subsonic server
+- `SUBSONIC_SERVER`: URL of your Subsonic server
 - `SUBSONIC_USER`: Subsonic username
-- `SUBSONIC_PASS`: Subsonic password
-- `AUTOPLAY_DEFAULT`: Default autoplay mode (optional, defaults to "none")
-- `MAX_QUEUE_SIZE`: Maximum queue size (optional, defaults to 500)
+- `SUBSONIC_PASSWORD`: Subsonic password
+- `DISCORD_BOT_TOKEN`: Your Discord bot token
+- `DISCORD_TEST_GUILD`: Discord test guild ID
+- `DISCORD_OWNER_ID`: Discord owner ID
+- `BOT_STATUS`: Bot status message (optional)
 
 ## 🛠️ Technical Stack
 
