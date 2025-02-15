@@ -1,6 +1,6 @@
 <div align="center">
 
-# Discodrome
+# DiscoDrome
 
 ### Discord bot that streams music from your personal Subsonic server
 
