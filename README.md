@@ -1,14 +1,14 @@
-# Discodrome 🎵
+# Discodrome
 
 Discodrome is a powerful Discord bot that streams music from your personal Subsonic server. It allows you to enjoy your own music collection within Discord voice channels, with commands for playing, queueing, skipping tracks, and more.
 
 ## Features
 
-🔹 Play music from your Subsonic server in Discord voice channels 🎵
-🔹 Queue tracks and manage the playback order 📜
-🔹 Skip tracks or clear the entire queue ⏩
-🔹 Automatic playback of similar or random tracks 🔁
-🔹 Easy setup with Docker or from source 🚀
+🔹 Play music from your Subsonic server in Discord voice channels
+🔹 Queue tracks and manage the playback order
+🔹 Skip tracks or clear the entire queur
+🔹 Automatic playback of similar or random tracks
+🔹 Easy setup with Docker or from source
 
 ## Installation
 
@@ -39,7 +39,7 @@ Discodrome is a powerful Discord bot that streams music from your personal Subso
 
 ## Contributing
 
-Contributions are welcome! 🤝 If you encounter any bugs 🐛 or have suggestions for new features 💡, please open an issue on the [GitHub repository](https://github.com/yourusername/discodrome). If you'd like to contribute code changes 💻, feel free to open a pull request.
+Contributions are welcome! 🤝 If you encounter any bugs 🐛 or have suggestions for new features, please open an issue on the [GitHub repository](https://github.com/yourusername/discodrome). If you'd like to contribute code changes, feel free to open a pull request.
 
 ## License
 
