@@ -5,15 +5,16 @@ on:
     branches: [ main ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag 7eventy7/submeister:$(echo ${{ github.sha }} | cut -c1-7)
+      run: |
+        docker build . --file Dockerfile --tag 7eventy7/submeister:$(echo ${{ github.sha }} | cut -c1-7)
+        docker tag 7eventy7/submeister:$(echo ${{ github.sha }} | cut -c1-7) 7eventy7/submeister:latest
       
     - name: Login to DockerHub
       uses: docker/login-action@v2
@@ -22,4 +23,6 @@ jobs:
         password: ${{ secrets.DOCKERHUB_PASS }}
         
     - name: Push to DockerHub
-      run: docker push 7eventy7/submeister:$(echo ${{ github.sha }} | cut -c1-7)
+      run: |
+        docker push 7eventy7/submeister:$(echo ${{ github.sha }} | cut -c1-7)
+        docker push 7eventy7/submeister:latest
