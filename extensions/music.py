@@ -1,8 +1,7 @@
-''' An extention allowing for music playback functionality '''
-
-import logging
 import discord
+import logging
 
+from discord import app_commands
 from discord.ext import commands
 
 import data
