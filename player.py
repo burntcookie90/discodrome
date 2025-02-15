@@ -71,13 +71,6 @@ class Player():
         audio_src = discord.FFmpegOpusAudio(subsonic.stream(song.song_id), **ffmpeg_options)
         # audio_src.read()
 
-        # Update the currently playing song, and reset the duration
-        self.current_song = song
-        self.current_position = 0
-
-        # Let the user know the track will play
-        await ui.SysMsg.playing(interaction)
-
         # TODO: Start a duration timer
 
         # Begin playing the song
