@@ -21,7 +21,7 @@ class SubmeisterClient(commands.Bot):
     def __init__(self, test_guild: int=None) -> None:
         self.test_guild = test_guild
 
-        super().__init__(command_prefix=commands.when_mentioned, intents=discord.Intents.all())
+        super().__init__(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
 
     async def load_extensions(self) -> None:
         ''' Auto-loads all extensions present within the `./extensions` directory. '''

@@ -1,13 +1,10 @@
-FROM python:3.11-alpine
+FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
-
-RUN apk add --no-cache alpine-sdk ffmpeg libffi-dev \
- && pip3 install -r requirements.txt \
- && apk del alpine-sdk
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python3", "/app/submeister.py"]
+CMD ["python", "submeister.py"]
