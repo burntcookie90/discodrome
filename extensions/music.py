@@ -81,7 +81,17 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.added_to_queue(interaction, songs[0])
         await player.play_audio_queue(interaction, voice_client)
 
-
+        # Check if there are no users in the voice channel after the song finishes
+        if len(voice_client.channel.members) == 1:
+            # Wait for 10 seconds
+            await asyncio.sleep(10)
+            
+            # Check again if there are still no users in the voice channel
+            if len(voice_client.channel.members) == 1:
+                # Disconnect the bot and clear the queue
+                await voice_client.disconnect()
+                player.queue.clear()
+                await ui.SysMsg.msg(interaction, "The bot has disconnected and cleared the queue as there are no users in the voice channel.")
 
 
     @app_commands.command(name="stop", description="Stop playing the current track")
@@ -96,7 +106,12 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.bot_not_in_voice_channel(interaction)
             return
 
-        # Disconnect the voice client
+        # Check if there are other users in the voice channel
+        if len(voice_client.channel.members) > 1:
+            await ui.SysMsg.msg(interaction, "The bot will stay connected as there are other users in the voice channel.")
+            return
+
+        # Disconnect the voice client if no other users are in the channel
         await interaction.guild.voice_client.disconnect()
 
         # Display disconnect confirmation

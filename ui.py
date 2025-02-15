@@ -1,5 +1,3 @@
-''' For complex UI-related tasks '''
-
 import discord
 
 import data
@@ -17,7 +15,7 @@ class SysMsg:
     async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None) -> None:
         ''' Generic message function. Creates a message formatted as an embed '''
 
-        embed = discord.Embed(color=discord.Color.orange(), title=header, description=message)
+        embed = discord.Embed(color=discord.Color(0x50C470), title=header, description=message)
         file = discord.utils.MISSING
 
         # Attach a thumbnail if one was provided (as a local file)
@@ -33,7 +31,7 @@ class SysMsg:
                     await interaction.followup.send(file=file, embed=embed)
                 else:
                     await interaction.response.send_message(file=file, embed=embed)
-                return
+                    return
             except discord.NotFound:
                 logger.warning("Attempt %d at sending a system message failed...", attempt+1)
                 attempt += 1
@@ -86,7 +84,7 @@ class ErrMsg:
     @staticmethod
     async def msg(interaction: discord.Interaction, message: str) -> None:
         ''' Generic message function. Creates an error message formatted as an embed '''
-        embed = discord.Embed(color=discord.Color.orange(), title="Error", description=message)
+        embed = discord.Embed(color=discord.Color(0x50C470), title="Error", description=message)
 
         if interaction.response.is_done():
             await interaction.followup.send(embed=embed, ephemeral=True)
