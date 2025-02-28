@@ -3,8 +3,9 @@ import logging
 from discord import app_commands
 from discord.ext import commands
 
+from random import randint 
 import data
-import player
+import copy
 import subsonic
 import ui
 from asyncio import sleep
@@ -226,7 +227,17 @@ class MusicCog(commands.Cog):
 
     @app_commands.command(name="shuffle", description="Shuffles the current queue")
     async def shuffle(self, interaction: discord.Interaction):
-        pass
+        ''' Randomize current queue using Fisher-Yates algorithm '''
+        temporaryqueue = copy.deepcopy(data.guild_data(interaction.guild_id).player.queue)
+        shuffledqueue = []
+        while len(temporaryqueue) > 0:
+            randomindex = randint(0, len(temporaryqueue) - 1)
+            shuffledqueue.append(temporaryqueue.pop(randomindex))
+        
+        data.guild_data(interaction.guild_id).player.queue = shuffledqueue
+        await ui.SysMsg.msg(interaction, "Queue shuffled!")
+
+
 
     @app_commands.command(name="disco", description="Plays the artist's entire discography")
     @app_commands.describe(artist="The artist to play")
