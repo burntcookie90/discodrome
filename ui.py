@@ -29,6 +29,7 @@ class SysMsg:
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(file=file, embed=embed)
+                    return
                 else:
                     await interaction.response.send_message(file=file, embed=embed)
                     return
@@ -38,13 +39,12 @@ class SysMsg:
 
 
     @staticmethod
-    async def playing(interaction: discord.Interaction) -> None:
+    async def now_playing(interaction: discord.Interaction, song: subsonic.Song) -> None:
         ''' Sends a message containing the currently playing song '''
         player = data.guild_data(interaction.guild_id).player
-        song = player.current_song
         cover_art = subsonic.get_album_art_file(song.cover_id)
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
-        await __class__.msg(interaction, "Playing:", desc, cover_art)
+        await __class__.msg(interaction, "Now Playing:", desc, cover_art)
 
     @staticmethod
     async def playback_ended(interaction: discord.Interaction) -> None:

@@ -70,7 +70,6 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     data.load_guild_properties_from_disk()
-
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
 

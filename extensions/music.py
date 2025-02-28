@@ -7,6 +7,7 @@ import data
 import player
 import subsonic
 import ui
+from asyncio import sleep
 
 from discodrome import DiscodromeClient
 
@@ -69,8 +70,12 @@ class MusicCog(commands.Cog):
         # Send our query to the subsonic API and retrieve a list of 1 song
         songs = subsonic.search(query, artist_count=0, album_count=0, song_count=1)
 
+        # Send query to subsonic API and retrieve a list of 1 album
+        albums = subsonic.search(query, artist_count=0, album_count=1, song_count=1)
+
+
         # Display an error if the query returned no results
-        if len(songs) == 0:
+        if len(songs) == 0 and len(albums) == 0:
             await ui.ErrMsg.msg(interaction, f"No result found for **{query}**.")
             return
         
@@ -79,24 +84,6 @@ class MusicCog(commands.Cog):
 
         await ui.SysMsg.added_to_queue(interaction, songs[0])
         await player.play_audio_queue(interaction, voice_client)
-
-        # Check if the bot is alone in the voice channel after the song finishes
-        await self.check_alone_disconnect(interaction, voice_client)
-    async def check_alone_disconnect(self, interaction: discord.Interaction, voice_client: discord.VoiceClient) -> None:
-        ''' Disconnect the bot if it's alone in the voice channel for 10 seconds '''
-
-        # Check if there are no users in the voice channel
-        if len(voice_client.channel.members) == 1:
-            # Wait for 10 seconds
-            await asyncio.sleep(10)
-            
-            # Check again if there are still no users in the voice channel
-            if len(voice_client.channel.members) == 1:
-                # Disconnect the bot and clear the queue
-                await voice_client.disconnect()
-                player = data.guild_data(interaction.guild_id).player
-                player.queue.clear()
-                await ui.SysMsg.msg(interaction, "The bot has disconnected and cleared the queue as there are no users in the voice channel.")
 
     @app_commands.command(name="stop", description="Stop playing the current track")
     async def stop(self, interaction: discord.Interaction) -> None:
@@ -114,7 +101,6 @@ class MusicCog(commands.Cog):
         voice_client.stop()
 
         # Check if the bot is alone and should disconnect after 10 seconds
-        await self.check_alone_disconnect(interaction, voice_client)
 
         # Display disconnect confirmation
         await ui.SysMsg.disconnected(interaction)
@@ -129,6 +115,11 @@ class MusicCog(commands.Cog):
 
         # Create a string to store the output of our queue
         output = ""
+
+        # Add currently playing song to output if available
+        if data.guild_data(interaction.guild_id).player.current_song is not None:
+            song = data.guild_data(interaction.guild_id).player.current_song
+            output += f"**Now Playing:**\n{song.title} - *{song.artist}*\n{song.album} ({song.duration_printable})\n\n"
 
         # Loop over our queue, adding each song into our output string
         for i, song in enumerate(queue):
@@ -206,6 +197,43 @@ class MusicCog(commands.Cog):
         if voice_client is not None and not voice_client.is_playing():
             player = data.guild_data(interaction.guild_id).player
             await player.play_audio_queue(interaction, voice_client)
+
+    @app_commands.command(name="shuffle", description="Shuffles the current queue")
+    async def shuffle(self, interaction: discord.Interaction):
+        pass
+
+    @app_commands.command(name="disco", description="Plays the artist's entire discography")
+    @app_commands.describe(artist="The artist to play")
+    async def disco(self, interaction: discord.Interaction, artist: str):
+        pass
+        
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
+        ''' Event called when a user's voice state changes '''
+
+        # Check if the bot is connected to a voice channel
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=member.guild)
+
+        # Check if the bot is connected to a voice channel
+        if voice_client is None:
+            return
+
+        # Check if the bot is alone in the voice channel
+        if len(voice_client.channel.members) == 1:
+            logger.debug("Bot is alone in voice channel, waiting 10 seconds before disconnecting...")
+            # Wait for 10 seconds
+            await sleep(10)
+            
+            # Check again if there are still no users in the voice channel
+            if len(voice_client.channel.members) == 1:
+                # Disconnect the bot and clear the queue
+                await voice_client.disconnect()
+                player = data.guild_data(member.guild.id).player
+                player.queue.clear()
+                logger.info("The bot has disconnected and cleared the queue as there are no users in the voice channel.")
+            else:
+                logger.debug("Bot is no longer alone in voice channel, aborting disconnect...")
 
 async def setup(bot: DiscodromeClient):
     ''' Setup function for the music.py cog '''

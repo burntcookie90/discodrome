@@ -62,11 +62,11 @@ class ColorFormatter(logging.Formatter):
         return output
 
 
-def setup_logging(file_log_level: int=logging.INFO, stream_log_level: int=logging.INFO) -> None:
+def setup_logging(main_log_level: int=logging.INFO, file_log_level: int=logging.INFO, stream_log_level: int=logging.INFO) -> None:
     '''Sets up logging handlers for both console and file logging.'''
 
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(main_log_level)
 
     dt_fmt = '%Y-%m-%d %H:%M:%S'
     formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
@@ -77,7 +77,7 @@ def setup_logging(file_log_level: int=logging.INFO, stream_log_level: int=loggin
     file_handler.setLevel(file_log_level)
     file_handler.setFormatter(formatter)
 
-    stream_handler = logging.StreamHandler()
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setLevel(stream_log_level)
 
     if stream_supports_color(stream_handler.stream):

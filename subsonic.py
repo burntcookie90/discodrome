@@ -67,6 +67,10 @@ class Song():
         ''' The total duration of the song as a human readable string in the format `mm:ss` '''
         return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
 
+class Album():
+    ''' Object representing an album returned from subsonic API '''
+    def init(self, json_object: dict) -> None:
+        pass
 
 def check_subsonic_error(response: requests.Response) -> bool:
     ''' Checks and logs error codes returned by the subsonic API. Returns True if an error is present. '''

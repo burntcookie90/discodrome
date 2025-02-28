@@ -140,10 +140,10 @@ class Player():
         # Check if the queue contains songs
         if self.queue != []:
 
-            # Pop the first item from the queue and begin streaming it
+            # Pop the first item from the queue and stream the track
             song = self.queue.pop(0)
             self.current_song = song
-
+            await ui.SysMsg.now_playing(interaction, song)
             await self.stream_track(interaction, song, voice_client)
         else:
             # If the queue is empty, playback has ended; we should let the user know
