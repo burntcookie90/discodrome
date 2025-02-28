@@ -6,8 +6,11 @@ import discord
 import data
 import subsonic
 import ui
+import logging
 
 from subsonic import Song
+
+logger = logging.getLogger(__name__)
 
 # Default player data
 _default_data: dict[str, any] = {
@@ -20,6 +23,7 @@ class Player():
     ''' Class that represents an audio player '''
     def __init__(self) -> None:
         self._data = _default_data  
+        self._player_loop = None
 
     @property
     def current_song(self) -> Song:
@@ -49,6 +53,16 @@ class Player():
     def queue(self, value: list) -> None:
         self._data["queue"] = value
 
+    @property
+    def player_loop(self) -> asyncio.AbstractEventLoop:
+        ''' The player loop '''
+        return self._player_loop
+    
+    @player_loop.setter
+    def player_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._player_loop = loop
+
+
 
 
 
@@ -75,6 +89,7 @@ class Player():
 
         # Begin playing the song
         loop = asyncio.get_event_loop()
+        self.player_loop = loop
 
         # Handle playback finished
         async def playback_finished(error):
@@ -148,3 +163,20 @@ class Player():
         else:
             # If the queue is empty, playback has ended; we should let the user know
             await ui.SysMsg.playback_ended(interaction)
+
+
+    async def skip_track(self, interaction: discord.Interaction, voice_client: discord.VoiceClient) -> None:
+        ''' Skips the current track and plays the next one in the queue '''
+
+        # Check if the bot is connected to a voice channel; it's the caller's responsibility to open a voice channel
+        if voice_client is None:
+            await ui.ErrMsg.bot_not_in_voice_channel(interaction)
+            return
+        logger.debug("Skipping track...")
+        # Check if the bot is already playing something
+        if voice_client.is_playing():
+            voice_client.stop()
+            await self.play_audio_queue(interaction, voice_client)
+            await ui.SysMsg.skipping(interaction)
+        else:
+            await ui.ErrMsg.not_playing(interaction)

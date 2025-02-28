@@ -12,7 +12,7 @@ class SysMsg:
     ''' A class for sending system messages '''
 
     @staticmethod
-    async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None) -> None:
+    async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None, *, ephemeral: bool=False) -> None:
         ''' Generic message function. Creates a message formatted as an embed '''
 
         embed = discord.Embed(color=discord.Color(0x50C470), title=header, description=message)
@@ -28,10 +28,10 @@ class SysMsg:
         while attempt < 3:
             try:
                 if interaction.response.is_done():
-                    await interaction.followup.send(file=file, embed=embed)
+                    await interaction.followup.send(file=file, embed=embed, ephemeral=ephemeral)
                     return
                 else:
-                    await interaction.response.send_message(file=file, embed=embed)
+                    await interaction.response.send_message(file=file, embed=embed, ephemeral=ephemeral)
                     return
             except discord.NotFound:
                 logger.warning("Attempt %d at sending a system message failed...", attempt+1)
@@ -41,7 +41,6 @@ class SysMsg:
     @staticmethod
     async def now_playing(interaction: discord.Interaction, song: subsonic.Song) -> None:
         ''' Sends a message containing the currently playing song '''
-        player = data.guild_data(interaction.guild_id).player
         cover_art = subsonic.get_album_art_file(song.cover_id)
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
         await __class__.msg(interaction, "Now Playing:", desc, cover_art)
@@ -62,10 +61,23 @@ class SysMsg:
         await __class__.msg(interaction, "Started queue playback")
 
     @staticmethod
+    async def stopping_queue_playback(interaction: discord.Interaction) -> None:
+        ''' Sends a message indicating queue playback has stopped '''
+        await __class__.msg(interaction, "Stopped queue playback")
+
+    @staticmethod
     async def added_to_queue(interaction: discord.Interaction, song: subsonic.Song) -> None:
         ''' Sends a message indicating the selected song was added to queue '''
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
-        await __class__.msg(interaction, f"{interaction.user.display_name} added track to queue", desc)
+        cover_art = subsonic.get_album_art_file(song.cover_id)
+        await __class__.msg(interaction, f"{interaction.user.display_name} added track to queue", desc, cover_art)
+
+    @staticmethod
+    async def added_album_to_queue(interaction: discord.Interaction, album: subsonic.Album) -> None:
+        ''' Sends a message indicating the selected album was added to queue '''
+        desc = f"**{album.name}** - *{album.artist}*\n{album.song_count} songs ({album.duration} seconds)"
+        cover_art = subsonic.get_album_art_file(album.cover_id)
+        await __class__.msg(interaction, f"{interaction.user.display_name} added album to queue", desc, cover_art)
 
     @staticmethod
     async def queue_cleared(interaction: discord.Interaction) -> None:
@@ -75,7 +87,7 @@ class SysMsg:
     @staticmethod
     async def skipping(interaction: discord.Interaction) -> None:
         ''' Sends a message indicating the current song was skipped '''
-        await __class__.msg(interaction, "Skipped track")
+        await __class__.msg(interaction, "Skipped track", ephemeral=True)
 
 
 class ErrMsg:

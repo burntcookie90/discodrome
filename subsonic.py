@@ -69,8 +69,65 @@ class Song():
 
 class Album():
     ''' Object representing an album returned from subsonic API '''
-    def init(self, json_object: dict) -> None:
-        pass
+    def __init__(self, json_object: dict) -> None:
+        self._id: str = json_object["id"] if "id" in json_object else ""
+        self._name: str = json_object["name"] if "name" in json_object else "Unknown Album"
+        self._artist: str = json_object["artist"] if "artist" in json_object else "Unknown Artist"
+        self._cover_id: str = json_object["coverArt"] if "coverArt" in json_object else ""
+        self._song_count: int = json_object["songCount"] if "songCount" in json_object else 0
+        self._duration: int = json_object["duration"] if "duration" in json_object else 0
+        self._year: int = json_object["year"] if "year" in json_object else 0
+        self._songs: list[Song] = []
+        for song in json_object["song"]:
+            self._songs.append(Song(song))
+    
+    @property
+    def album_id(self) -> str:
+        ''' The album's id '''
+        return self._id
+    
+    @property
+    def name(self) -> str:
+        ''' The album's name '''
+        return self._name
+    
+    @property
+    def artist(self) -> str:
+        ''' The album's artist '''
+        return self._artist
+    
+    @property
+    def cover_id(self) -> str:
+        ''' The id of the cover art used by the album '''
+        return self._cover_id
+    
+    @property
+    def song_count(self) -> int:
+        ''' The number of songs in the album '''
+        return self._song_count
+    
+    @property
+    def duration(self) -> int:
+        ''' The total duration of the album '''
+        return self._duration
+    
+    @property
+    def duration_printable(self) -> str:
+        ''' The total duration of the album as a human readable string in the format `mm:ss` '''
+        return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
+    
+    @property
+    def year(self) -> int:
+        ''' The year the album was released '''
+        return self._year
+    
+    @property
+    def songs(self) -> list[Song]:
+        ''' The songs in the album '''
+        return self._songs
+    
+
+        
 
 def check_subsonic_error(response: requests.Response) -> bool:
     ''' Checks and logs error codes returned by the subsonic API. Returns True if an error is present. '''
@@ -110,7 +167,7 @@ def check_subsonic_error(response: requests.Response) -> bool:
     logger.warning("Subsonic API request responded with error code %s: %s", err_code, err_msg)
     return True
 
-def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_count: int=20, album_offset: int=0, song_count: int=20, song_offset: int=0) -> list[Song]:
+def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_count: int=0, album_offset: int=0, song_count: int=20, song_offset: int=0) -> list[Song]:
     ''' Send a search request to the subsonic API '''
 
     # Sanitize special characters in the user's query
@@ -130,6 +187,7 @@ def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_coun
 
     response = requests.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params, timeout=20)
     search_data = response.json()
+    logger.debug("Search Response: %s", search_data)
 
     results: list[Song] = []
 
@@ -140,6 +198,41 @@ def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_coun
         return []
 
     return results
+
+def search_album(query: str) -> list[Album]:
+    ''' Send a search request to the subsonic API to return 1 album and all its songs '''
+
+    # Sanitize special characters in the user's query
+    #parsed_query = urlParse.quote(query, safe='')
+
+    search_params = {
+        "query": query, #todo: fix parsed query
+        "artistCount": "0",
+        "albumCount": "1",
+        "albumOffset": "0",
+        "songCount": "0",
+        "songOffset": "0"
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+
+    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params, timeout=20)
+    albumid  = response.json()["subsonic-response"]["searchResult3"]["album"][0]["id"]
+    search_params = {
+        "id": albumid
+    }
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=params, timeout=20)
+    search_data = response.json()
+    logger.debug("Search Response: %s", search_data)
+
+    try:
+        album = Album(search_data["subsonic-response"]["album"])
+    except Exception as e:
+        logger.error("Failed to parse album data: %s", e)
+        return None
+    
+    return album
 
 def get_album_art_file(cover_id: str, size: int=300) -> str:
     ''' Request album art from the subsonic API '''

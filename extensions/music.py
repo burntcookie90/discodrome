@@ -37,8 +37,12 @@ class MusicCog(commands.Cog):
         return voice_client
 
     @app_commands.command(name="play", description="Plays a specified track")
-    @app_commands.describe(query="Enter a search query")
-    async def play(self, interaction: discord.Interaction, query: str=None) -> None:
+    @app_commands.describe(querytype="Whether what you're searching is a track or album", query="Enter a search query")
+    @app_commands.choices(querytype=[
+        app_commands.Choice(name="Track", value="track"),
+        app_commands.Choice(name="Album", value="album"),
+    ])
+    async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
 
         # Check if user is in voice channel
@@ -67,27 +71,51 @@ class MusicCog(commands.Cog):
             await player.play_audio_queue(interaction, voice_client)
             return
 
-        # Send our query to the subsonic API and retrieve a list of 1 song
-        songs = subsonic.search(query, artist_count=0, album_count=0, song_count=1)
+        # Check querytype is not blank
+        if querytype is None:
+            return await ui.ErrMsg.msg(interaction, "Please provide a query type.")
 
-        # Send query to subsonic API and retrieve a list of 1 album
-        albums = subsonic.search(query, artist_count=0, album_count=1, song_count=1)
+        # Check if the query is a track
+        if querytype == "track":
+
+            # Send our query to the subsonic API and retrieve a list of 1 song
+            songs = subsonic.search(query, artist_count=0, album_count=0, song_count=1)
 
 
-        # Display an error if the query returned no results
-        if len(songs) == 0 and len(albums) == 0:
-            await ui.ErrMsg.msg(interaction, f"No result found for **{query}**.")
-            return
-        
-        # Add the first result to the queue and handle queue playback
-        player.queue.append(songs[0])
+            # Display an error if the query returned no results
+            if len(songs) == 0:
+                await ui.ErrMsg.msg(interaction, f"No track found for **{query}**.")
+                return
+            
+            # Add the first result to the queue and handle queue playback
+            player.queue.append(songs[0])
 
-        await ui.SysMsg.added_to_queue(interaction, songs[0])
+            await ui.SysMsg.added_to_queue(interaction, songs[0])
+
+        elif querytype == "album":
+
+            # Send query to subsonic API and retrieve a list of 1 album
+            album = subsonic.search_album(query)
+            if album == None:
+                await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
+                return
+            
+            # Add all songs from the album to the queue
+            for song in album.songs:
+                player.queue.append(song)
+            
+            await ui.SysMsg.added_album_to_queue(interaction, album)
+
         await player.play_audio_queue(interaction, voice_client)
 
     @app_commands.command(name="stop", description="Stop playing the current track")
     async def stop(self, interaction: discord.Interaction) -> None:
         ''' Disconnect from the active voice channel '''
+
+        player = data.guild_data(interaction.guild_id).player
+
+        if player.current_song is None:
+            ui.ErrMsg.not_playing(interaction)
 
         # Get the voice client instance for the current guild
         voice_client = await self.get_voice_client(interaction)
@@ -100,10 +128,12 @@ class MusicCog(commands.Cog):
         # Stop playback
         voice_client.stop()
 
-        # Check if the bot is alone and should disconnect after 10 seconds
+        # Add current song back to the queue if exists
+        player.queue.insert(0, player.current_song)
+        player.current_song = None
 
         # Display disconnect confirmation
-        await ui.SysMsg.disconnected(interaction)
+        await ui.SysMsg.stopping_queue_playback(interaction)
 
 
     @app_commands.command(name="queue", description="View the current queue")
@@ -160,11 +190,7 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.not_playing(interaction)
             return
 
-        # Stop the current song
-        voice_client.stop()
-
-        # Display confirmation message
-        await ui.SysMsg.skipping(interaction)
+        await data.guild_data(interaction.guild_id).player.skip_track(interaction, voice_client)
 
 
     @app_commands.command(name="autoplay", description="Toggles autoplay")
@@ -231,6 +257,7 @@ class MusicCog(commands.Cog):
                 await voice_client.disconnect()
                 player = data.guild_data(member.guild.id).player
                 player.queue.clear()
+                player.current_song = None
                 logger.info("The bot has disconnected and cleared the queue as there are no users in the voice channel.")
             else:
                 logger.debug("Bot is no longer alone in voice channel, aborting disconnect...")
