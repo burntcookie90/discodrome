@@ -11,6 +11,7 @@ import data
 
 from util import env
 from util import logs
+from subsonic import close_session
 
 class DiscodromeClient(commands.Bot):
     ''' An instance of the Discodrome client '''
@@ -78,3 +79,5 @@ def exit_handler():
     ''' Function ran on application exit. '''
 
     data.save_guild_properties_to_disk()
+    close_session()
+    logger.info("Discodrome shutdown complete.")

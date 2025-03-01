@@ -80,7 +80,7 @@ class MusicCog(commands.Cog):
         if querytype == "track":
 
             # Send our query to the subsonic API and retrieve a list of 1 song
-            songs = subsonic.search(query, artist_count=0, album_count=0, song_count=1)
+            songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
 
 
             # Display an error if the query returned no results
@@ -96,7 +96,7 @@ class MusicCog(commands.Cog):
         elif querytype == "album":
 
             # Send query to subsonic API and retrieve a list of 1 album
-            album = subsonic.search_album(query)
+            album = await subsonic.search_album(query)
             if album == None:
                 await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
                 return
@@ -221,9 +221,15 @@ class MusicCog(commands.Cog):
 
         # If the bot is connected to a voice channel and autoplay is enabled, start queue playback
         voice_client = await self.get_voice_client(interaction)
-        if voice_client is not None and not voice_client.is_playing():
+        if voice_client is not None and not voice_client.is_playing():        
             player = data.guild_data(interaction.guild_id).player
+
+            # If queue is already empty and no song is playing, handle autoplay
+            if player.queue == [] and player.current_song is None:
+                await player.handle_autoplay(interaction)
+                
             await player.play_audio_queue(interaction, voice_client)
+        
 
     @app_commands.command(name="shuffle", description="Shuffles the current queue")
     async def shuffle(self, interaction: discord.Interaction):

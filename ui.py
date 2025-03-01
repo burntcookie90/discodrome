@@ -41,7 +41,7 @@ class SysMsg:
     @staticmethod
     async def now_playing(interaction: discord.Interaction, song: subsonic.Song) -> None:
         ''' Sends a message containing the currently playing song '''
-        cover_art = subsonic.get_album_art_file(song.cover_id)
+        cover_art = await subsonic.get_album_art_file(song.cover_id)
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
         await __class__.msg(interaction, "Now Playing:", desc, cover_art)
 
@@ -69,14 +69,14 @@ class SysMsg:
     async def added_to_queue(interaction: discord.Interaction, song: subsonic.Song) -> None:
         ''' Sends a message indicating the selected song was added to queue '''
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
-        cover_art = subsonic.get_album_art_file(song.cover_id)
+        cover_art = await subsonic.get_album_art_file(song.cover_id)
         await __class__.msg(interaction, f"{interaction.user.display_name} added track to queue", desc, cover_art)
 
     @staticmethod
     async def added_album_to_queue(interaction: discord.Interaction, album: subsonic.Album) -> None:
         ''' Sends a message indicating the selected album was added to queue '''
         desc = f"**{album.name}** - *{album.artist}*\n{album.song_count} songs ({album.duration} seconds)"
-        cover_art = subsonic.get_album_art_file(album.cover_id)
+        cover_art = await subsonic.get_album_art_file(album.cover_id)
         await __class__.msg(interaction, f"{interaction.user.display_name} added album to queue", desc, cover_art)
 
     @staticmethod

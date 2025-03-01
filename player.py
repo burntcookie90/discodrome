@@ -82,7 +82,7 @@ class Player():
         # Get the stream from the Subsonic server, using the provided song's ID
         ffmpeg_options = {"before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                            "options": "-filter:a volume=replaygain=track"}
-        audio_src = discord.FFmpegOpusAudio(subsonic.stream(song.song_id), **ffmpeg_options)
+        audio_src = discord.FFmpegOpusAudio(await subsonic.stream(song.song_id), **ffmpeg_options)
         # audio_src.read()
 
         # TODO: Start a duration timer
@@ -124,9 +124,9 @@ class Player():
 
         match autoplay_mode:
             case data.AutoplayMode.RANDOM:
-                songs = subsonic.get_random_songs(size=1)
+                songs = await subsonic.get_random_songs(size=1)
             case data.AutoplayMode.SIMILAR:
-                songs = subsonic.get_similar_songs(song_id=prev_song_id, count=1)
+                songs = await subsonic.get_similar_songs(song_id=prev_song_id, count=1)
 
         # If there's no match, throw an error
         if len(songs) == 0:
@@ -135,8 +135,6 @@ class Player():
         
         self.queue.append(songs[0])
         return True
-        # Fetch the cover art in advance
-        subsonic.get_album_art_file(songs[0].cover_id)
 
 
     async def play_audio_queue(self, interaction: discord.Interaction, voice_client: discord.VoiceClient) -> None:
