@@ -29,7 +29,7 @@ async def get_session() -> aiohttp.ClientSession:
         globalsession = aiohttp.ClientSession()
     return globalsession
 
-def close_session() -> None:
+async def close_session() -> None:
     ''' Close the aiohttp session '''
     global globalsession
     if globalsession is not None:

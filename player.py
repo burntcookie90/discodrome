@@ -167,12 +167,10 @@ class Player():
             self.current_song = song
             await ui.SysMsg.now_playing(interaction, song)
             await self.stream_track(interaction, song, voice_client)
-            
         else:
             # If the queue is empty, playback has ended; we should let the user know
             await ui.SysMsg.playback_ended(interaction)
 
-    
 
     async def skip_track(self, interaction: discord.Interaction, voice_client: discord.VoiceClient) -> None:
         ''' Skips the current track and plays the next one in the queue '''
