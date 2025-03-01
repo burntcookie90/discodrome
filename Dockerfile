@@ -10,4 +10,7 @@ RUN apk add --no-cache alpine-sdk ffmpeg libffi-dev \
 
 COPY . .
 
+# Set stop signal to SIGTERM to ensure clean shutdown
+STOPSIGNAL SIGTERM
+
 CMD ["python3", "/app/discodrome.py"]

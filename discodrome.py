@@ -1,4 +1,4 @@
-import atexit
+import signal
 import discord
 import logging
 import os
@@ -67,17 +67,18 @@ class DiscodromeClient(commands.Bot):
         logger.info("Logged as: %s | Connected Guilds: %s | Loaded Extensions: %s", self.user, len(self.guilds), list(self.extensions))
 
 if __name__ == "__main__":
-    logs.setup_logging()
+    logs.setup_logging(main_log_level=logging.DEBUG, stream_log_level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
     data.load_guild_properties_from_disk()
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
 
-@atexit.register
-def exit_handler():
+def exit_handler(signum, frame):
     ''' Function ran on application exit. '''
-
+    logger.debug("Beginning graceful shutdown...")
     data.save_guild_properties_to_disk()
     close_session()
     logger.info("Discodrome shutdown complete.")
+
+signal.signal(signal.SIGTERM, exit_handler)
