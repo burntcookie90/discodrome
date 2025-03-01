@@ -36,6 +36,13 @@ def close_session() -> None:
         globalsession.close()
         globalsession = None
 
+class APIError(Exception):
+    ''' Exception raised for errors in the Subsonic API '''
+    def __init__(self, errorcode: int, message: str) -> None:
+        self.errorcode = errorcode
+        self.message = message
+        super().__init__(self.message)
+
 class Song():
     ''' Object representing a song returned from the Subsonic API '''
     def __init__(self, json_object: dict) -> None:
@@ -142,7 +149,18 @@ class Album():
         return self._songs
     
 
-        
+async def ping_api() -> bool:
+    ''' Send a ping request to the subsonic API '''
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/ping.view", params=SUBSONIC_REQUEST_PARAMS) as response:
+        response.raise_for_status()
+        ping_data = await response.json()
+        if await check_subsonic_error(ping_data):
+            return False
+        logger.debug("Ping Response: %s", ping_data)
+    
+    return True
 
 async def check_subsonic_error(response: dict[str, any]) -> bool:
     ''' Checks and logs error codes returned by the subsonic API. Returns true if an error is present '''
@@ -160,24 +178,33 @@ async def check_subsonic_error(response: dict[str, any]) -> bool:
     match err_code:
         case 0:
             err_msg = "Generic Error."
+            raise APIError(err_code, err_msg)
         case 10:
             err_msg = "Required Parameter Missing."
+            raise APIError(err_code, err_msg)
         case 20:
             err_msg = "Incompatible Subsonic REST protocol version. Client must upgrade."
+            raise APIError(err_code, err_msg)
         case 30:
             err_msg = "Incompatible Subsonic REST protocol version. Server must upgrade."
+            raise APIError(err_code, err_msg)
         case 40:
             err_msg = "Wrong username or password."
+            raise APIError(err_code, err_msg)
         case 41:
             err_msg = "Token authentication not supported for LDAP users."
+            raise APIError(err_code, err_msg)
         case 50:
             err_msg = "User is not authorized for the given operation."
+            raise APIError(err_code, err_msg)
         case 60:
             err_msg = "The trial period for the Subsonic server is over."
+            raise APIError(err_code, err_msg)
         case 70:
             err_msg = "The requested data was not found."
         case _:
             err_msg = "Unknown Error Code."
+            raise APIError(err_code, err_msg)
 
     logger.warning("Subsonic API request responded with error code %s: %s", err_code, err_msg)
     return True
@@ -265,6 +292,66 @@ async def search_album(query: str) -> list[Album]:
         return None
     
     return album
+
+async def get_artist_discography(query: str) -> Album:
+    ''' Send a search request to the subsonic API to return all albums by an artist '''
+
+    # Sanitize special characters in the user's query
+    #parsed_query = urlParse.quote(query, safe='')
+
+    search_params = {
+        "query": query,
+        "artistCount": "1",
+        "albumCount": "0",
+        "albumOffset": "0",
+        "songCount": "0",
+        "songOffset": "0"
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        artistid = search_data["subsonic-response"]["searchResult3"]["artist"][0]["id"]
+        logger.debug("Artist ID: %s", artistid)
+    
+    artist_params = {
+        "id": artistid
+    }
+
+    artist_params = SUBSONIC_REQUEST_PARAMS | artist_params
+
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getArtist.view", params=artist_params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        logger.debug("Search Response: %s", search_data)
+        albums = search_data["subsonic-response"]["artist"]["album"]
+    
+    album_list : list[Album] = []
+
+    for albuminfo in albums:
+        albumid = albuminfo["id"]
+        album_params = {
+            "id": albumid
+        }
+        album_params = SUBSONIC_REQUEST_PARAMS | album_params
+        async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
+            response.raise_for_status()
+            album = await response.json()
+            if await check_subsonic_error(album):
+                return None
+            logger.debug("Search Response: %s", album)
+            album = Album(album["subsonic-response"]["album"])
+            album_list.append(album)
+
+    return album_list
+
 
 async def get_album_art_file(cover_id: str, size: int=300) -> str:
     ''' Request album art from the subsonic API '''

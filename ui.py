@@ -1,8 +1,8 @@
 import discord
 
-import data
-import subsonic
 import logging
+
+from subsonic import Song, Album, get_album_art_file
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,14 @@ class SysMsg:
     async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None, *, ephemeral: bool=False) -> None:
         ''' Generic message function. Creates a message formatted as an embed '''
 
+        # Handle message over character limit
+        if message is not None and len(message) > 4096:
+            message = message[:4093] + "..."
+
         embed = discord.Embed(color=discord.Color(0x50C470), title=header, description=message)
         file = discord.utils.MISSING
+
+
 
         # Attach a thumbnail if one was provided (as a local file)
         if thumbnail is not None:
@@ -39,9 +45,9 @@ class SysMsg:
 
 
     @staticmethod
-    async def now_playing(interaction: discord.Interaction, song: subsonic.Song) -> None:
+    async def now_playing(interaction: discord.Interaction, song: Song) -> None:
         ''' Sends a message containing the currently playing song '''
-        cover_art = await subsonic.get_album_art_file(song.cover_id)
+        cover_art = await get_album_art_file(song.cover_id)
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
         await __class__.msg(interaction, "Now Playing:", desc, cover_art)
 
@@ -66,18 +72,28 @@ class SysMsg:
         await __class__.msg(interaction, "Stopped queue playback")
 
     @staticmethod
-    async def added_to_queue(interaction: discord.Interaction, song: subsonic.Song) -> None:
+    async def added_to_queue(interaction: discord.Interaction, song: Song) -> None:
         ''' Sends a message indicating the selected song was added to queue '''
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
-        cover_art = await subsonic.get_album_art_file(song.cover_id)
+        cover_art = await get_album_art_file(song.cover_id)
         await __class__.msg(interaction, f"{interaction.user.display_name} added track to queue", desc, cover_art)
 
     @staticmethod
-    async def added_album_to_queue(interaction: discord.Interaction, album: subsonic.Album) -> None:
+    async def added_album_to_queue(interaction: discord.Interaction, album: Album) -> None:
         ''' Sends a message indicating the selected album was added to queue '''
         desc = f"**{album.name}** - *{album.artist}*\n{album.song_count} songs ({album.duration} seconds)"
-        cover_art = await subsonic.get_album_art_file(album.cover_id)
+        cover_art = await get_album_art_file(album.cover_id)
         await __class__.msg(interaction, f"{interaction.user.display_name} added album to queue", desc, cover_art)
+
+    @staticmethod
+    async def added_discography_to_queue(interaction: discord.Interaction, artist: str, albums: list[Album]) -> None:
+        ''' Sends a message indicating the selected artist's discography was added to queue '''
+        desc = f"**{artist}**\n{len(albums)} albums\n\n"
+        cover_art = await get_album_art_file(albums[0].cover_id)
+        for counter in range(len(albums)):
+            album = albums[counter]
+            desc += f"**{str(counter+1)}. {album.name}**\n{album.song_count} songs ({album.duration} seconds)\n\n" 
+        await __class__.msg(interaction, f"{interaction.user.display_name} added discography to queue", desc, cover_art)
 
     @staticmethod
     async def queue_cleared(interaction: discord.Interaction) -> None:
@@ -136,7 +152,7 @@ class ErrMsg:
 
 
 # Methods for parsing data to Discord structures
-def parse_search_as_track_selection_embed(results: list[subsonic.Song], query: str, page_num: int) -> discord.Embed:
+def parse_search_as_track_selection_embed(results: list[Song], query: str, page_num: int) -> discord.Embed:
     ''' Takes search results obtained from the Subsonic API and parses them into a Discord embed suitable for track selection '''
 
     options_str = ""
@@ -168,7 +184,7 @@ def parse_search_as_track_selection_embed(results: list[subsonic.Song], query: s
     return discord.Embed(color=discord.Color.orange(), title=f"Results for: {query}", description=options_str)
 
 
-def parse_search_as_track_selection_options(results: list[subsonic.Song]) -> list[discord.SelectOption]:
+def parse_search_as_track_selection_options(results: list[Song]) -> list[discord.SelectOption]:
     ''' Takes search results obtained from the Subsonic API and parses them into a Discord selection list for tracks '''
 
     select_options = []

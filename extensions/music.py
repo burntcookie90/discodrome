@@ -81,7 +81,9 @@ class MusicCog(commands.Cog):
 
             # Send our query to the subsonic API and retrieve a list of 1 song
             songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
-
+            if songs == "Error":
+                await ui.ErrMsg.msg(interaction, f"An api error has occurred and has been logged to console. Please contact an administrator.")
+                return
 
             # Display an error if the query returned no results
             if len(songs) == 0:
@@ -108,6 +110,16 @@ class MusicCog(commands.Cog):
             await ui.SysMsg.added_album_to_queue(interaction, album)
 
         await player.play_audio_queue(interaction, voice_client)
+
+    @play.error
+    async def play_error(self, ctx, error):
+        if isinstance(error, subsonic.APIError):
+            logging.error(f"An API error has occurred playing a track, code {error.code}: {error.message}")
+            await ui.ErrMsg.msg(ctx, "An API error has occurred and has been logged to console. Please contact an administrator.")
+        else:
+            logging.error(f"An error occurred while playing a track: {error}")
+            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
 
     @app_commands.command(name="stop", description="Stop playing the current track")
     async def stop(self, interaction: discord.Interaction) -> None:
@@ -136,6 +148,10 @@ class MusicCog(commands.Cog):
         # Display disconnect confirmation
         await ui.SysMsg.stopping_queue_playback(interaction)
 
+    @stop.error
+    async def stop_error(self, ctx, error):
+        logging.error(f"An error occurred while stopping playback: {error}")
+        await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
     @app_commands.command(name="queue", description="View the current queue")
     async def show_queue(self, interaction: discord.Interaction) -> None:
@@ -154,7 +170,13 @@ class MusicCog(commands.Cog):
 
         # Loop over our queue, adding each song into our output string
         for i, song in enumerate(queue):
-            output += f"{i+1}. **{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})\n\n"
+            strtoadd = f"{i+1}. **{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})\n\n"
+            if len(output+strtoadd) < 4083:
+                output += strtoadd
+            else:
+                remaining = len(queue) - i
+                output += f"**And {remaining} more...**"
+                break
 
         # Check if our output string is empty & update it accordingly
         if output == "":
@@ -163,6 +185,10 @@ class MusicCog(commands.Cog):
         # Show the user their queue
         await ui.SysMsg.msg(interaction, "Queue", output)
 
+    @show_queue.error
+    async def show_queue_error(self, ctx, error):
+        logging.error(f"An error occurred while displaying the queue: {error}")
+        await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
     @app_commands.command(name="clear", description="Clear the current queue")
     async def clear_queue(self, interaction: discord.Interaction) -> None:
@@ -172,6 +198,11 @@ class MusicCog(commands.Cog):
 
         # Let the user know that the queue has been cleared
         await ui.SysMsg.queue_cleared(interaction)
+
+    @clear_queue.error
+    async def clear_queue_error(self, ctx, error):
+        logging.error(f"An error occurred while clearing the queue: {error}")
+        await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
 
     @app_commands.command(name="skip", description="Skip the current track")
@@ -193,6 +224,10 @@ class MusicCog(commands.Cog):
 
         await data.guild_data(interaction.guild_id).player.skip_track(interaction, voice_client)
 
+    @skip.error
+    async def skip_error(self, ctx, error):
+        logging.error(f"An error occurred while skipping a track: {error}")
+        await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
     @app_commands.command(name="autoplay", description="Toggles autoplay")
     @app_commands.describe(mode="Determines the method to use when autoplaying")
@@ -204,6 +239,7 @@ class MusicCog(commands.Cog):
     async def autoplay(self, interaction: discord.Interaction, mode: app_commands.Choice[str]) -> None:
         ''' Toggles autoplay '''
 
+        logger.debug(f"Autoplay mode: {mode.value}")
         # Update the autoplay properties
         match mode.value:
             case "none":
@@ -219,17 +255,33 @@ class MusicCog(commands.Cog):
         else:
             await ui.SysMsg.msg(interaction, f"Autoplay enabled by {interaction.user.display_name}", f"Autoplay mode: **{mode.name}**")
 
+
         # If the bot is connected to a voice channel and autoplay is enabled, start queue playback
         voice_client = await self.get_voice_client(interaction)
+        logger.debug(f"Voice client: {voice_client}")
+        if voice_client:
+            logger.debug(f"Is playing: {voice_client.is_playing()}")
         if voice_client is not None and not voice_client.is_playing():        
             player = data.guild_data(interaction.guild_id).player
 
+            logger.debug(f"Queue: {player.queue}")
+            logger.debug(f"Current song: {player.current_song}")
             # If queue is already empty and no song is playing, handle autoplay
             if player.queue == [] and player.current_song is None:
+                logging.debug("Handling autoplay...")
                 await player.handle_autoplay(interaction)
                 
+            logger.debug("Playing audio queue...")
             await player.play_audio_queue(interaction, voice_client)
         
+    @autoplay.error
+    async def autoplay_error(self, ctx, error):
+        if isinstance(error, subsonic.APIError):
+            logging.error(f"An API error has occurred while toggling autoplay, code {error.code}: {error.message}")
+            await ui.ErrMsg.msg(ctx, "An API error has occurred and has been logged to console. Please contact an administrator.")
+        else:
+            logging.error(f"An error occurred while toggling autoplay: {error}")
+            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
     @app_commands.command(name="shuffle", description="Shuffles the current queue")
     async def shuffle(self, interaction: discord.Interaction):
@@ -243,13 +295,49 @@ class MusicCog(commands.Cog):
         data.guild_data(interaction.guild_id).player.queue = shuffledqueue
         await ui.SysMsg.msg(interaction, "Queue shuffled!")
 
-
+    @shuffle.error
+    async def shuffle_error(self, ctx, error):
+        logging.error(f"An error occurred while shuffling the queue: {error}")
+        await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
     @app_commands.command(name="disco", description="Plays the artist's entire discography")
     @app_commands.describe(artist="The artist to play")
     async def disco(self, interaction: discord.Interaction, artist: str):
-        pass
+        ''' Play the artist's entire discography'''
+
+        # Get a valid voice channel connection
+        voice_client = await self.get_voice_client(interaction, should_connect=True)
+
+        # Get the guild's player
+        player = data.guild_data(interaction.guild_id).player
+
+        # Send our query to the subsonic API and retrieve list of albums in artist's discography
+        albums = await subsonic.get_artist_discography(artist)
+        if albums == None:
+            await ui.ErrMsg.msg(interaction, f"No discography found for **{artist}**.")
+            return
         
+        # Add all songs from the artist's discography to the queue
+        for album in albums:
+            for song in album.songs:
+                player.queue.append(song)
+        
+        # Display a message that discography was added to the queue
+        await ui.SysMsg.added_discography_to_queue(interaction, artist, albums)
+
+        # Begin playback of queue
+        await player.play_audio_queue(interaction, voice_client)
+
+        
+
+    @disco.error
+    async def disco_error(self, ctx, error):
+        if isinstance(error, subsonic.APIError):
+            logging.error(f"An API error has occurred while playing an artist's discography, code {error.code}: {error.message}")
+            await ui.ErrMsg.msg(ctx, "An API error has occurred and has been logged to console. Please contact an administrator.")
+        else:
+            logging.error(f"An error occurred while playing an artist's discography: {error}")
+            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")    
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
