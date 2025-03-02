@@ -1,8 +1,8 @@
 name: Docker Image CI
 
 on:
-  push:
-    branches: [ main ]
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -23,5 +23,5 @@ jobs:
         
     - name: Push to DockerHub
       run: |
-        docker push 7eventy7/discodrome:$(echo ${{ github.sha }} | cut -c1-7)
+        docker push 7eventy7/discodrome:${GITHUB_REF_NAME}
         docker push 7eventy7/discodrome:latest
