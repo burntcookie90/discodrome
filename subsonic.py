@@ -2,7 +2,7 @@
 
 import logging
 import os
-import requests
+import aiohttp
 
 from pathlib import Path
 
@@ -20,6 +20,28 @@ SUBSONIC_REQUEST_PARAMS = {
         "f": "json"
     }
 
+globalsession = None
+
+async def get_session() -> aiohttp.ClientSession:
+    ''' Get an aiohttp session '''
+    global globalsession
+    if globalsession is None:
+        globalsession = aiohttp.ClientSession()
+    return globalsession
+
+async def close_session() -> None:
+    ''' Close the aiohttp session '''
+    global globalsession
+    if globalsession is not None:
+        globalsession.close()
+        globalsession = None
+
+class APIError(Exception):
+    ''' Exception raised for errors in the Subsonic API '''
+    def __init__(self, errorcode: int, message: str) -> None:
+        self.errorcode = errorcode
+        self.message = message
+        super().__init__(self.message)
 
 class Song():
     ''' Object representing a song returned from the Subsonic API '''
@@ -67,46 +89,129 @@ class Song():
         ''' The total duration of the song as a human readable string in the format `mm:ss` '''
         return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
 
+class Album():
+    ''' Object representing an album returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        self._id: str = json_object["id"] if "id" in json_object else ""
+        self._name: str = json_object["name"] if "name" in json_object else "Unknown Album"
+        self._artist: str = json_object["artist"] if "artist" in json_object else "Unknown Artist"
+        self._cover_id: str = json_object["coverArt"] if "coverArt" in json_object else ""
+        self._song_count: int = json_object["songCount"] if "songCount" in json_object else 0
+        self._duration: int = json_object["duration"] if "duration" in json_object else 0
+        self._year: int = json_object["year"] if "year" in json_object else 0
+        self._songs: list[Song] = []
+        for song in json_object["song"]:
+            self._songs.append(Song(song))
+    
+    @property
+    def album_id(self) -> str:
+        ''' The album's id '''
+        return self._id
+    
+    @property
+    def name(self) -> str:
+        ''' The album's name '''
+        return self._name
+    
+    @property
+    def artist(self) -> str:
+        ''' The album's artist '''
+        return self._artist
+    
+    @property
+    def cover_id(self) -> str:
+        ''' The id of the cover art used by the album '''
+        return self._cover_id
+    
+    @property
+    def song_count(self) -> int:
+        ''' The number of songs in the album '''
+        return self._song_count
+    
+    @property
+    def duration(self) -> int:
+        ''' The total duration of the album '''
+        return self._duration
+    
+    @property
+    def duration_printable(self) -> str:
+        ''' The total duration of the album as a human readable string in the format `mm:ss` '''
+        return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
+    
+    @property
+    def year(self) -> int:
+        ''' The year the album was released '''
+        return self._year
+    
+    @property
+    def songs(self) -> list[Song]:
+        ''' The songs in the album '''
+        return self._songs
+    
 
-def check_subsonic_error(response: requests.Response) -> bool:
-    ''' Checks and logs error codes returned by the subsonic API. Returns True if an error is present. '''
+async def ping_api() -> bool:
+    ''' Send a ping request to the subsonic API '''
 
-    try:
-        json = response.json()
-    except requests.exceptions.JSONDecodeError:
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/ping.view", params=SUBSONIC_REQUEST_PARAMS) as response:
+        response.raise_for_status()
+        ping_data = await response.json()
+        if await check_subsonic_error(ping_data):
+            return False
+        logger.debug("Ping Response: %s", ping_data)
+    
+    return True
+
+async def check_subsonic_error(response: dict[str, any]) -> bool:
+    ''' Checks and logs error codes returned by the subsonic API. Returns true if an error is present '''
+
+    logging.debug("Checking for subsonic error...")
+    if isinstance(response, aiohttp.ClientResponse):
+        try:
+            response = await response.json()
+        except Exception as e:
+            return False
+
+    if response["subsonic-response"]["status"] == "ok":
+        logging.debug("No error found.")
         return False
-
-    try:
-        err_code: int = json["subsonic-response"]["error"]["code"]
-    except KeyError:
-        return False
-
+    
+    err_code = response["subsonic-response"]["error"]["code"]
     match err_code:
         case 0:
             err_msg = "Generic Error."
+            raise APIError(err_code, err_msg)
         case 10:
             err_msg = "Required Parameter Missing."
+            raise APIError(err_code, err_msg)
         case 20:
             err_msg = "Incompatible Subsonic REST protocol version. Client must upgrade."
+            raise APIError(err_code, err_msg)
         case 30:
             err_msg = "Incompatible Subsonic REST protocol version. Server must upgrade."
+            raise APIError(err_code, err_msg)
         case 40:
             err_msg = "Wrong username or password."
+            raise APIError(err_code, err_msg)
         case 41:
             err_msg = "Token authentication not supported for LDAP users."
+            raise APIError(err_code, err_msg)
         case 50:
             err_msg = "User is not authorized for the given operation."
+            raise APIError(err_code, err_msg)
         case 60:
             err_msg = "The trial period for the Subsonic server is over."
+            raise APIError(err_code, err_msg)
         case 70:
             err_msg = "The requested data was not found."
         case _:
             err_msg = "Unknown Error Code."
+            raise APIError(err_code, err_msg)
 
     logger.warning("Subsonic API request responded with error code %s: %s", err_code, err_msg)
     return True
 
-def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_count: int=20, album_offset: int=0, song_count: int=20, song_offset: int=0) -> list[Song]:
+async def search(query: str, *, artist_count: int=00, artist_offset: int=0, album_count: int=0, album_offset: int=0, song_count: int=1, song_offset: int=0) -> list[Song]:
     ''' Send a search request to the subsonic API '''
 
     # Sanitize special characters in the user's query
@@ -124,9 +229,14 @@ def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_coun
 
     params = SUBSONIC_REQUEST_PARAMS | search_params
 
-    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params, timeout=20)
-    search_data = response.json()
-
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return []
+        logger.debug("Search Response: %s", search_data)            
+    
     results: list[Song] = []
 
     try:
@@ -137,7 +247,123 @@ def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_coun
 
     return results
 
-def get_album_art_file(cover_id: str, size: int=300) -> str:
+async def search_album(query: str) -> list[Album]:
+    ''' Send a search request to the subsonic API to return 1 album and all its songs '''
+
+    # Sanitize special characters in the user's query
+    #parsed_query = urlParse.quote(query, safe='')
+
+    search_params = {
+        "query": query,
+        "artistCount": "0",
+        "albumCount": "1",
+        "albumOffset": "0",
+        "songCount": "0",
+        "songOffset": "0"
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        try:
+            albumid = search_data["subsonic-response"]["searchResult3"]["album"][0]["id"]
+        except Exception as e:
+            return None
+        logger.debug("Album ID: %s", albumid)
+    
+    album_params = {
+        "id": albumid
+    }
+
+    album_params = SUBSONIC_REQUEST_PARAMS | album_params
+
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        logger.debug("Search Response: %s", search_data)
+
+
+    try:
+        album = Album(search_data["subsonic-response"]["album"])
+    except Exception as e:
+        logger.error("Failed to parse album data: %s", e)
+        return None
+    
+    return album
+
+async def get_artist_id(query: str) -> str:
+    ''' Send a search request to the subsonic API to return the id of an artist '''
+
+    search_params = {
+        "query": query,
+        "artistCount": "1",
+        "albumCount": "0",
+        "albumOffset": "0",
+        "songCount": "0",
+        "songOffset": "0"
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        artistid = search_data["subsonic-response"]["searchResult3"]["artist"][0]["id"]
+        logger.debug("Artist ID: %s", artistid)
+    
+    return artistid
+
+async def get_artist_discography(query: str) -> Album:
+    ''' Send a search request to the subsonic API to return all albums by an artist '''
+
+    artistid = await get_artist_id(query)
+    
+    artist_params = {
+        "id": artistid
+    }
+
+    artist_params = SUBSONIC_REQUEST_PARAMS | artist_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getArtist.view", params=artist_params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        logger.debug("Search Response: %s", search_data)
+        albums = search_data["subsonic-response"]["artist"]["album"]
+    
+    album_list : list[Album] = []
+
+    for albuminfo in albums:
+        albumid = albuminfo["id"]
+        album_params = {
+            "id": albumid
+        }
+        album_params = SUBSONIC_REQUEST_PARAMS | album_params
+        async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
+            response.raise_for_status()
+            album = await response.json()
+            if await check_subsonic_error(album):
+                return None
+            logger.debug("Search Response: %s", album)
+            album = Album(album["subsonic-response"]["album"])
+            album_list.append(album)
+
+    return album_list
+
+
+async def get_album_art_file(cover_id: str, size: int=300) -> str:
     ''' Request album art from the subsonic API '''
     target_path = f"cache/{cover_id}.jpg"
 
@@ -151,20 +377,22 @@ def get_album_art_file(cover_id: str, size: int=300) -> str:
     }
 
     params = SUBSONIC_REQUEST_PARAMS | cover_params
-    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/getCoverArt", params=params, timeout=20)
 
-    # Grab cover art for the current song
-    if check_subsonic_error(response):
-        return "resources/cover_not_found.jpg"
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getCoverArt", params=params) as response:
+        logging.debug("Response: %s", response.content)
+        if await check_subsonic_error(response) or response.status != 200:
+            return "resources/cover_not_found.jpg"
 
-    file = Path(target_path)
-    file.parent.mkdir(exist_ok=True, parents=True)
-    file.write_bytes(response.content)
+        file = Path(target_path)
+        file.parent.mkdir(exist_ok=True, parents=True)
+        file.write_bytes(await response.read())
+        
     return target_path
 
-def get_random_songs(size: int=None, genre: str=None, from_year: int=None, to_year: int=None, music_folder_id: str=None) -> list[Song]:
+async def get_random_songs(size: int=None, genre: str=None, from_year: int=None, to_year: int=None, music_folder_id: str=None) -> list[Song]:
     ''' Request random songs from the subsonic API '''
-
+    logger.debug("Requesting random song...")
     search_params: dict[str, any] = {}
 
     # Handle Optional params
@@ -185,8 +413,14 @@ def get_random_songs(size: int=None, genre: str=None, from_year: int=None, to_ye
 
 
     params = SUBSONIC_REQUEST_PARAMS | search_params
-    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/getRandomSongs.view", params=params, timeout=20)
-    search_data = response.json()
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getRandomSongs.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return []
+        logger.debug("Search Response: %s", search_data)
 
     results: list[Song] = []
     for item in search_data["subsonic-response"]["randomSongs"]["song"]:
@@ -194,8 +428,14 @@ def get_random_songs(size: int=None, genre: str=None, from_year: int=None, to_ye
 
     return results
 
-def get_similar_songs(song_id: str, count: int=50) -> list[Song]:
+async def get_similar_songs(song_id: str, count: int=1) -> list[Song]:
     ''' Request similar songs from the subsonic API '''
+
+    logger.debug("Requesting similar song...")
+    logger.debug("Song id: %s", song_id)
+
+    if song_id is None:
+        return []
 
     search_params = {
         "id": song_id,
@@ -203,16 +443,32 @@ def get_similar_songs(song_id: str, count: int=50) -> list[Song]:
     }
 
     params = SUBSONIC_REQUEST_PARAMS | search_params
-    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/getSimilarSongs2.view", params=params, timeout=20)
-    search_data = response.json()
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getSimilarSongs.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        logging.debug("Json Response: %s", search_data)
+        subsonic_error = await check_subsonic_error(search_data)
+        logger.debug("Subsonic error: %s", subsonic_error)
+        if subsonic_error:
+            logger.debug("Subsonic error. Returning empty list.")
+            return []
 
     results: list[Song] = []
-    for item in search_data["subsonic-response"]["similarSongs2"]["song"]:
+    
+    if search_data["subsonic-response"]["similarSongs"] == {}:
+        logging.debug("No similar songs found. Returning empty list.")
+        return []
+    
+    logger.debug("Similar songs: %s", search_data["subsonic-response"]["similarSongs"]["song"])
+    for item in search_data["subsonic-response"]["similarSongs"]["song"]:
         results.append(Song(item))
 
+    logger.debug("Similar songs: %s", results)
     return results
 
-def stream(stream_id: str):
+async def stream(stream_id: str):
     ''' Send a stream request to the subsonic API '''
 
     stream_params = {
@@ -221,6 +477,11 @@ def stream(stream_id: str):
     }
 
     params = SUBSONIC_REQUEST_PARAMS | stream_params
-    response = requests.get(f"{env.SUBSONIC_SERVER}/rest/stream.view", params=params, timeout=20, stream=True)
 
-    return response.url
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/stream.view", params=params, timeout=20) as response:
+        response.raise_for_status()
+        if response.content_type == "text/xml":
+            logger.error("Failed to stream song: %s", await response.text())
+            return None
+        return str(response.url)

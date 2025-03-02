@@ -1,4 +1,5 @@
-import atexit
+from asyncio import run
+import signal
 import discord
 import logging
 import os
@@ -11,6 +12,7 @@ import data
 
 from util import env
 from util import logs
+from subsonic import close_session, ping_api
 
 class DiscodromeClient(commands.Bot):
     ''' An instance of the Discodrome client '''
@@ -53,6 +55,10 @@ class DiscodromeClient(commands.Bot):
         ''' Setup done after login, prior to events being dispatched. '''
 
         await self.load_extensions()
+        if await ping_api():
+            logger.info("Subsonic API is online.")
+        else:
+            logger.error("Subsonic API is unreachable.")
 
         if self.test_guild:
             await self.sync_command_tree()
@@ -68,14 +74,16 @@ class DiscodromeClient(commands.Bot):
 if __name__ == "__main__":
     logs.setup_logging()
     logger = logging.getLogger(__name__)
-
     data.load_guild_properties_from_disk()
-
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)
 
-@atexit.register
-def exit_handler():
+def exit_handler(signum, frame):
     ''' Function ran on application exit. '''
-
+    logger.debug("Beginning graceful shutdown...")
     data.save_guild_properties_to_disk()
+    run(close_session())
+    logger.info("Discodrome shutdown complete.")
+
+# Register the exit handler
+signal.signal(signal.SIGTERM, exit_handler)
