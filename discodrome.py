@@ -1,3 +1,4 @@
+from asyncio import run
 import signal
 import discord
 import logging
@@ -81,6 +82,7 @@ def exit_handler(signum, frame):
     ''' Function ran on application exit. '''
     logger.debug("Beginning graceful shutdown...")
     data.save_guild_properties_to_disk()
+    run(close_session())
     logger.info("Discodrome shutdown complete.")
 
 # Register the exit handler

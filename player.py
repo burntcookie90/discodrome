@@ -136,11 +136,6 @@ class Player():
                     logger.debug(f"Prev song ID: {prev_song_id}")
                     songs = await get_similar_songs(song_id=prev_song_id, count=1)
 
-                    # Fallback to random if no similar songs are found
-                    if len(songs) == 0:
-                        logger.warning("No similar songs found. Defaulting to random.")
-                        songs = await get_random_songs(size=1)
-
         except APIError as err:
             logging.error(f"API Error fetching song for autoplay, Code {err.errorcode}: {err.message}")
         
