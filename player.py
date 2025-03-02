@@ -95,17 +95,18 @@ class Player():
 
         # Handle playback finished
         async def playback_finished(error):
-            if await self.handle_autoplay(interaction, self.current_song.song_id):
-                asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
-            else:
-                # Add a cooldown check before sending the playback ended message
-                last_message_time = getattr(interaction.guild, "last_playback_ended_message_time", 0)
-                current_time = asyncio.get_running_loop().time()
-                if current_time - last_message_time >= 5:  # 5 seconds cooldown
-                    asyncio.run_coroutine_threadsafe(ui.SysMsg.playback_ended(interaction), loop)
-                    interaction.guild.last_playback_ended_message_time = current_time
+            if error:
+                logging.error(f"An error occurred while playing the audio: {error}")
+                return
+            logger.debug("Playback finished.")
+            asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
 
-        voice_client.play(audio_src, after=playback_finished)
+
+        try:
+            voice_client.play(audio_src, after=lambda e: loop.create_task(playback_finished(e)))
+        except Exception as err:
+            logging.error(f"An error occurred while playing the audio: {err}")
+            return
 
 
     async def handle_autoplay(self, interaction: discord.Interaction, prev_song_id: str=None) -> bool:
@@ -123,6 +124,7 @@ class Player():
         # If there was no previous song provided, we default back to selecting a random song
         if prev_song_id is None:
             autoplay_mode = data.AutoplayMode.RANDOM
+            logging.info("No previous song ID provided. Defaulting to random.")
 
         songs = []
 
@@ -131,7 +133,14 @@ class Player():
                 case data.AutoplayMode.RANDOM:
                     songs = await get_random_songs(size=1)
                 case data.AutoplayMode.SIMILAR:
+                    logger.debug(f"Prev song ID: {prev_song_id}")
                     songs = await get_similar_songs(song_id=prev_song_id, count=1)
+
+                    # Fallback to random if no similar songs are found
+                    if len(songs) == 0:
+                        logger.warning("No similar songs found. Defaulting to random.")
+                        songs = await get_random_songs(size=1)
+
         except APIError as err:
             logging.error(f"API Error fetching song for autoplay, Code {err.errorcode}: {err.message}")
         
@@ -161,13 +170,23 @@ class Player():
 
         # Check if the queue contains songs
         if self.queue != []:
-
             # Pop the first item from the queue and stream the track
             song = self.queue.pop(0)
             self.current_song = song
             await ui.SysMsg.now_playing(interaction, song)
             await self.stream_track(interaction, song, voice_client)
         else:
+            logger.debug("Queue is empty.")
+            logger.debug("Current song: %s", self.current_song)
+            if self.current_song is not None:
+                prev_song_id = self.current_song.song_id
+                self.current_song = None
+            else:
+                prev_song_id = None
+            # Handle autoplay if queue is empty
+            if await self.handle_autoplay(interaction, prev_song_id=prev_song_id):
+                await self.play_audio_queue(interaction, voice_client)
+                return
             # If the queue is empty, playback has ended; we should let the user know
             await ui.SysMsg.playback_ended(interaction)
 
@@ -183,7 +202,6 @@ class Player():
         # Check if the bot is already playing something
         if voice_client.is_playing():
             voice_client.stop()
-            await self.play_audio_queue(interaction, voice_client)
             await ui.SysMsg.skipping(interaction)
         else:
             await ui.ErrMsg.not_playing(interaction)

@@ -165,6 +165,7 @@ async def ping_api() -> bool:
 async def check_subsonic_error(response: dict[str, any]) -> bool:
     ''' Checks and logs error codes returned by the subsonic API. Returns true if an error is present '''
 
+    logging.debug("Checking for subsonic error...")
     if isinstance(response, aiohttp.ClientResponse):
         try:
             response = await response.json()
@@ -172,6 +173,7 @@ async def check_subsonic_error(response: dict[str, any]) -> bool:
             return False
 
     if response["subsonic-response"]["status"] == "ok":
+        logging.debug("No error found.")
         return False
     
     err_code = response["subsonic-response"]["error"]["code"]
@@ -209,7 +211,7 @@ async def check_subsonic_error(response: dict[str, any]) -> bool:
     logger.warning("Subsonic API request responded with error code %s: %s", err_code, err_msg)
     return True
 
-async def search(query: str, *, artist_count: int=20, artist_offset: int=0, album_count: int=0, album_offset: int=0, song_count: int=1, song_offset: int=0) -> list[Song]:
+async def search(query: str, *, artist_count: int=00, artist_offset: int=0, album_count: int=0, album_offset: int=0, song_count: int=1, song_offset: int=0) -> list[Song]:
     ''' Send a search request to the subsonic API '''
 
     # Sanitize special characters in the user's query
@@ -268,7 +270,10 @@ async def search_album(query: str) -> list[Album]:
         search_data = await response.json()
         if await check_subsonic_error(search_data):
             return None
-        albumid = search_data["subsonic-response"]["searchResult3"]["album"][0]["id"]
+        try:
+            albumid = search_data["subsonic-response"]["searchResult3"]["album"][0]["id"]
+        except Exception as e:
+            return None
         logger.debug("Album ID: %s", albumid)
     
     album_params = {
@@ -293,11 +298,8 @@ async def search_album(query: str) -> list[Album]:
     
     return album
 
-async def get_artist_discography(query: str) -> Album:
-    ''' Send a search request to the subsonic API to return all albums by an artist '''
-
-    # Sanitize special characters in the user's query
-    #parsed_query = urlParse.quote(query, safe='')
+async def get_artist_id(query: str) -> str:
+    ''' Send a search request to the subsonic API to return the id of an artist '''
 
     search_params = {
         "query": query,
@@ -319,12 +321,20 @@ async def get_artist_discography(query: str) -> Album:
         artistid = search_data["subsonic-response"]["searchResult3"]["artist"][0]["id"]
         logger.debug("Artist ID: %s", artistid)
     
+    return artistid
+
+async def get_artist_discography(query: str) -> Album:
+    ''' Send a search request to the subsonic API to return all albums by an artist '''
+
+    artistid = await get_artist_id(query)
+    
     artist_params = {
         "id": artistid
     }
 
     artist_params = SUBSONIC_REQUEST_PARAMS | artist_params
 
+    session = await get_session()
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getArtist.view", params=artist_params) as response:
         response.raise_for_status()
         search_data = await response.json()
@@ -382,7 +392,7 @@ async def get_album_art_file(cover_id: str, size: int=300) -> str:
 
 async def get_random_songs(size: int=None, genre: str=None, from_year: int=None, to_year: int=None, music_folder_id: str=None) -> list[Song]:
     ''' Request random songs from the subsonic API '''
-
+    logger.debug("Requesting random song...")
     search_params: dict[str, any] = {}
 
     # Handle Optional params
@@ -418,8 +428,14 @@ async def get_random_songs(size: int=None, genre: str=None, from_year: int=None,
 
     return results
 
-async def get_similar_songs(song_id: str, count: int=50) -> list[Song]:
+async def get_similar_songs(song_id: str, count: int=1) -> list[Song]:
     ''' Request similar songs from the subsonic API '''
+
+    logger.debug("Requesting similar song...")
+    logger.debug("Song id: %s", song_id)
+
+    if song_id is None:
+        return []
 
     search_params = {
         "id": song_id,
@@ -429,17 +445,27 @@ async def get_similar_songs(song_id: str, count: int=50) -> list[Song]:
     params = SUBSONIC_REQUEST_PARAMS | search_params
 
     session = await get_session()
-    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getSimilarSongs2.view", params=params) as response:
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getSimilarSongs.view", params=params) as response:
         response.raise_for_status()
         search_data = await response.json()
         logging.debug("Json Response: %s", search_data)
-        if await check_subsonic_error(search_data):
+        subsonic_error = await check_subsonic_error(search_data)
+        logger.debug("Subsonic error: %s", subsonic_error)
+        if subsonic_error:
+            logger.debug("Subsonic error. Returning empty list.")
             return []
 
     results: list[Song] = []
-    for item in search_data["subsonic-response"]["similarSongs2"]["song"]:
+    
+    if search_data["subsonic-response"]["similarSongs"] == {}:
+        logging.debug("No similar songs found. Returning empty list.")
+        return []
+    
+    logger.debug("Similar songs: %s", search_data["subsonic-response"]["similarSongs"]["song"])
+    for item in search_data["subsonic-response"]["similarSongs"]["song"]:
         results.append(Song(item))
 
+    logger.debug("Similar songs: %s", results)
     return results
 
 async def stream(stream_id: str):

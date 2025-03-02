@@ -265,11 +265,10 @@ class MusicCog(commands.Cog):
             player = data.guild_data(interaction.guild_id).player
 
             logger.debug(f"Queue: {player.queue}")
-            logger.debug(f"Current song: {player.current_song}")
-            # If queue is already empty and no song is playing, handle autoplay
-            if player.queue == [] and player.current_song is None:
-                logging.debug("Handling autoplay...")
-                await player.handle_autoplay(interaction)
+            try:
+                logger.debug(f"Current song: {player.current_song.title}")
+            except AttributeError:
+                logger.debug("No current song")
                 
             logger.debug("Playing audio queue...")
             await player.play_audio_queue(interaction, voice_client)
