@@ -1,6 +1,6 @@
 <div align="center">
-
-# <img src="resources/discodrome.png" width="32" height="32" alt="Trackly Icon"> Discodrome
+  
+# <img src="resources/discodrome.png" width="32" height="32" alt="Discodrome Icon"> Discodrome
 
 ### Subsonic Compatible Discord Music Bot
 
@@ -16,58 +16,75 @@ A discord music bot that seamlessly streams music from your personal music serve
 
 ## 🎮 Commands
 
-- `/play [query]`: Play a track matching the query or resume current queue
-- `/stop`: Stop playback and disconnect from voice channel
-- `/queue`: Display the current playback queue
-- `/clear`: Clear all tracks from the queue
-- `/skip`: Skip the currently playing track
-- `/autoplay [mode]`: Set autoplay mode (none/random/similar)
+| Command | Description |
+|---------|-------------|
+| `/play` | Plays a specified track |
+| `/disco` | Plays an artist's entire discography |
+| `/queue` | View the current queue |
+| `/clear` | Clear the current queue |
+| `/shuffle` | Shuffles the current queue |
+| `/skip` | Skip the current track |
+| `/stop` | Stop playing the current track |
+| `/autoplay` | Toggles autoplay |
 
-## 🚀 Getting Started
+## 🚀 Complete Setup Guide
 
-### Using Docker (Recommended)
+### Step 1: Create a Discord Bot
 
-1. Pull the latest image:
-```bash
-docker pull 7eventy7/discodrome:latest
-```
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click "New Application" and give it a name
+3. Navigate to the "Bot" tab and click "Add Bot"
+4. Under the TOKEN section, click "Reset Token" and copy your new token
+5. Enable the following Privileged Gateway Intents:
+   - MESSAGE CONTENT INTENT
+   - SERVER MEMBERS INTENT
+   - PRESENCE INTENT
+6. Navigate to "OAuth2" → "URL Generator"
+7. Select the following scopes: `bot`, `applications.commands`
+8. Select bot permissions: `Send Messages`, `Connect`, `Speak`, `Use Voice Activity`, `Read Message History`
+9. Copy the generated URL and paste it in your browser to invite the bot to your server
 
-2. Create a docker-compose.yml file:
-```yaml
-version: '3'
-services:
-  discodrome:
-    image: 7eventy7/discodrome:latest
-    environment:
-      - SUBSONIC_SERVER=your_subsonic_server
-      - SUBSONIC_USER=your_subsonic_username
-      - SUBSONIC_PASSWORD=your_subsonic_password
-      - DISCORD_BOT_TOKEN=your_discord_bot_token
-      - DISCORD_TEST_GUILD=your_discord_test_guild
-      - DISCORD_OWNER_ID=your_discord_owner_id
-      - BOT_STATUS=your_bot_status
-    restart: unless-stopped
-```
+### Step 2: Set Up Your Environment
 
-3. Start the bot:
-```bash
-docker-compose up -d
-```
+#### Required Information:
+- **Discord Bot Token**: From step 1
+- **Discord Server ID**: Right-click your server icon → "Copy ID" (Developer Mode must be enabled in Discord settings)
+- **Your Discord User ID**: Right-click your username → "Copy ID"
+- **Subsonic Server Details**: URL, username, and password for your music server
 
-## ⚙️ Configuration
+### Step 3: Deploy with Docker
+
+1. Pull the Docker image:
+`docker pull 7eventy7/discodrome:latest`
+
+2. Run the container with the required environment variables from the configuration section below:
+
+## ⚙️ Configuration Options
 
 ### Environment Variables
-- `SUBSONIC_SERVER`: URL of your Subsonic server
-- `SUBSONIC_USER`: Subsonic username
-- `SUBSONIC_PASSWORD`: Subsonic password
-- `DISCORD_BOT_TOKEN`: Your Discord bot token
-- `DISCORD_TEST_GUILD`: Discord test guild ID
-- `DISCORD_OWNER_ID`: Discord owner ID
-- `BOT_STATUS`: Bot status message (optional)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SUBSONIC_SERVER` | URL of your Subsonic server (include http/https) | Yes |
+| `SUBSONIC_USER` | Username for your Subsonic server | Yes |
+| `SUBSONIC_PASSWORD` | Password for your Subsonic server | Yes |
+| `DISCORD_BOT_TOKEN` | Your Discord bot token | Yes |
+| `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
+| `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
+| `BOT_STATUS` | Custom status message for the bot | No |
+
+### Supported Subsonic Servers
+
+- Navidrome
+- Airsonic
+- Subsonic
+- Gonic
+- Ampache (with Subsonic API enabled)
+- Jellyfin (with Subsonic plugin)
 
 ## 🛠️ Technical Stack
 
-- Discord.js
+- Discord.js v14
 - Node.js
 - Subsonic API
 - Docker
@@ -76,7 +93,6 @@ docker-compose up -d
 ## 👥 Contributing
 
 We welcome contributions! Whether it's:
-
 - 🐛 Reporting bugs
 - 💡 Suggesting features
 - 📝 Improving documentation
@@ -96,7 +112,5 @@ This project is a fork of [Submeister](https://github.com/Gimzie/submeister) by 
 ---
 
 <div align="center">
-
-Forked with ❤️ by [7eventy7](https://github.com/7eventy7)
-
+Forked with ❤️ by <a href="https://github.com/7eventy7">7eventy7</a>
 </div>
