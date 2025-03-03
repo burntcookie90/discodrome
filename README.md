@@ -1,14 +1,14 @@
 <div align="center">
 
-# DiscoDrome
+# <img src="resources/discodrome.png" width="32" height="32" alt="Trackly Icon"> Discodrome
 
-### Discord bot that streams music from your personal Subsonic server
+### Subsonic Compatible Discord Music Bot
 
 [![GitHub issues](https://img.shields.io/github/issues/7eventy7/discodrome.svg)](https://github.com/7eventy7/discodrome/issues)
 [![Docker Pulls](https://img.shields.io/docker/pulls/7eventy7/discodrome.svg)](https://hub.docker.com/r/7eventy7/discodrome)
 [![License](https://img.shields.io/github/license/7eventy7/discodrome.svg)](https://github.com/7eventy7/discodrome/blob/main/LICENSE)
 
-Enjoy your music collection within Discord voice channels with rich playback controls and automation features.
+A discord music bot that seamlessly streams music from your personal music server directly to your voice channels. Works great with Navidrome, and other subsonic compatible music servers.
 
 </div>
 
