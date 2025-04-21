@@ -72,8 +72,8 @@ class DiscodromeClient(commands.Bot):
         logger.info("Logged as: %s | Connected Guilds: %s | Loaded Extensions: %s", self.user, len(self.guilds), list(self.extensions))
 
 if __name__ == "__main__":
-    logs.setup_logging(main_log_level=logging.DEBUG, file_log_level=logging.DEBUG, stream_log_level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
+    log_level = logging._nameToLevel.get(env.LOG_LEVEL.upper(), logging.INFO) if env.LOG_LEVEL else logging.INFO
+    logs.setup_logging(main_log_level=log_level, file_log_level=log_level, stream_log_level=log_level)
     data.load_guild_properties_from_disk()
     client = DiscodromeClient(test_guild=env.DISCORD_TEST_GUILD)
     client.run(env.DISCORD_BOT_TOKEN, log_handler=None)

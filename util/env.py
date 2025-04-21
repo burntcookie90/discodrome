@@ -14,3 +14,5 @@ SUBSONIC_USER: Final[str] = os.getenv("SUBSONIC_USER")
 SUBSONIC_PASSWORD: Final[str] = os.getenv("SUBSONIC_PASSWORD")
 
 BOT_STATUS: Final[str] = os.getenv("BOT_STATUS")
+
+LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL")
